@@ -1,6 +1,50 @@
 {
-  "players": [],
-  "history": [],
+  "players": [
+    {
+      "name": "a",
+      "avatar": null
+    },
+    {
+      "name": "b",
+      "avatar": null
+    },
+    {
+      "name": "c",
+      "avatar": null
+    },
+    {
+      "name": "d",
+      "avatar": null
+    }
+  ],
+  "history": [
+    {
+      "id": 1780338721678,
+      "date": "01 juin 2026, 19:32",
+      "players": [
+        {
+          "name": "a",
+          "rank": "gold",
+          "color": "red"
+        },
+        {
+          "name": "b",
+          "rank": "silver",
+          "color": "green"
+        },
+        {
+          "name": "c",
+          "rank": "bronze",
+          "color": "yellow"
+        },
+        {
+          "name": "d",
+          "rank": "donkey",
+          "color": "blue"
+        }
+      ]
+    }
+  ],
   "adminCreds": {
     "username": "elrecham",
     "passwordHash": "1qjxyw2"
