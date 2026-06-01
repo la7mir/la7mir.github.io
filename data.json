@@ -1,10 +1,5 @@
 {
-  "players": [
-    {
-      "name": "D",
-      "avatar": null
-    }
-  ],
+  "players": [],
   "history": [],
   "adminCreds": {
     "username": "elrecham",
