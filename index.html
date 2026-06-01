@@ -426,6 +426,10 @@ async function ghLoad() {
     const j = await r.json();
     _ghSha = j.sha;
     const data = JSON.parse(atob(j.content.replace(/\n/g,'')));
+    // Restore admin creds from GitHub into localStorage
+    if (data.adminCreds) {
+      localStorage.setItem('admin-creds', JSON.stringify(data.adminCreds));
+    }
     return data;
   } catch(e) {
     console.warn('GitHub load failed, using localStorage', e);
@@ -436,11 +440,11 @@ async function ghLoad() {
 async function ghSave() {
   if (_syncPending) return;
   _syncPending = true;
-  // Show sync indicator
   const ind = document.getElementById('sync-indicator');
   if (ind) { ind.textContent = '☁️ Sync…'; ind.style.color = 'var(--text-dim)'; }
   try {
-    const data = { players: knownPlayers, history };
+    const adminCreds = DB.get('admin-creds', null);
+    const data = { players: knownPlayers, history, adminCreds };
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
     const body = { message: `update data ${new Date().toISOString()}`, content, sha: _ghSha };
     const r = await fetch(GH_API, {
@@ -507,7 +511,10 @@ function hashStr(s) {
 
 function isAdmin() { return sessionAdmin; }
 
-function getCredentials() { return DB.get('admin-creds', null); }
+function getCredentials() {
+  // Check data.json cache first, fallback to localStorage
+  return DB.get('admin-creds', null);
+}
 
 function tryLogin(username, password) {
   const creds = getCredentials();
@@ -516,7 +523,31 @@ function tryLogin(username, password) {
 }
 
 function setupAdmin(username, password) {
-  DB.set('admin-creds', { username: username.trim(), passwordHash: hashStr(password) });
+  const creds = { username: username.trim(), passwordHash: hashStr(password) };
+  DB.set('admin-creds', creds);
+  // Also save to GitHub immediately (don't wait for debounce)
+  ghSaveCreds(creds);
+}
+
+async function ghSaveCreds(creds) {
+  // Patch admin creds into data.json directly
+  try {
+    const r = await fetch(GH_API, {
+      headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json' }
+    });
+    const j = await r.json();
+    _ghSha = j.sha;
+    const current = JSON.parse(atob(j.content.replace(/\n/g,'')));
+    current.adminCreds = creds;
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(current, null, 2))));
+    const res = await fetch(GH_API, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'update admin creds', content, sha: _ghSha })
+    });
+    const rj = await res.json();
+    _ghSha = rj.content.sha;
+  } catch(e) { console.warn('creds sync failed', e); }
 }
 
 function logout() {
@@ -653,7 +684,9 @@ function doChangePassword() {
     err.textContent = 'Les mots de passe ne correspondent pas';
     err.classList.add('visible'); return;
   }
-  DB.set('admin-creds', { username: creds.username, passwordHash: hashStr(newPass) });
+  const newCreds = { username: creds.username, passwordHash: hashStr(newPass) };
+  DB.set('admin-creds', newCreds);
+  ghSaveCreds(newCreds);
   closeModal('modal-chpass');
   showToast('🔑 Mot de passe changé !');
 }
