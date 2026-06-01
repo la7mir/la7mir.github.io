@@ -1,18 +1,5 @@
 {
-  "players": [
-    {
-      "name": "b",
-      "avatar": null
-    },
-    {
-      "name": "c",
-      "avatar": null
-    },
-    {
-      "name": "d",
-      "avatar": null
-    }
-  ],
+  "players": [],
   "history": [
     {
       "id": 1780317638417,
