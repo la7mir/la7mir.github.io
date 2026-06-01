@@ -1,33 +1,6 @@
 {
   "players": [],
-  "history": [
-    {
-      "id": 1780317638417,
-      "date": "01 juin 2026, 13:40",
-      "players": [
-        {
-          "name": "a",
-          "rank": "gold",
-          "color": "blue"
-        },
-        {
-          "name": "b",
-          "rank": "silver",
-          "color": "red"
-        },
-        {
-          "name": "c",
-          "rank": "bronze",
-          "color": "green"
-        },
-        {
-          "name": "d",
-          "rank": "donkey",
-          "color": "yellow"
-        }
-      ]
-    }
-  ],
+  "history": [],
   "adminCreds": {
     "username": "elrecham",
     "passwordHash": "1qjxyw2"
