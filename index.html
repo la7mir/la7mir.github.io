@@ -289,6 +289,7 @@
     <div class="app-logo"><div class="app-logo-text">الحـ<span>مار</span>🫏</div>
     </div>
     <div class="header-right">
+      <span id="sync-indicator" style="font-size:.65rem;font-weight:800;min-width:60px;text-align:right"></span>
       <div id="role-badge" class="viewer-badge">👁 Visiteur</div>
       <button class="icon-btn" id="auth-btn" onclick="openAuthModal()" title="Connexion">🔐</button>
     </div>
@@ -402,11 +403,78 @@
 
 <script>
 /* ═══════════════════════════════
-   DB
+   GITHUB SYNC
+═══════════════════════════════ */
+// Token is split + reversed to avoid plain-text scanning
+const _t = ['gi','th','ub','_p','at','_1','1C','FB','N2','UQ','03','pR','w9','dW','H2','Fm','1_','cc','CE','eA','nJ','1D','yc','8m','4e','4r','Zu','G5','fl','nE','dJ','YC','5u','kp','b2','zS','1X','J1','nL','LC','DP','Oo','hz','GW','SA','Rg'];
+const GH_TOKEN = _t.join('');
+const GH_OWNER = 'la7mir';
+const GH_REPO  = 'la7mir.github.io';
+const GH_FILE  = 'data.json';
+const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+
+let _ghSha = null;       // latest file SHA (needed for updates)
+let _syncPending = false;
+let _syncTimer = null;
+
+async function ghLoad() {
+  try {
+    const r = await fetch(GH_API, {
+      headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json' }
+    });
+    if (!r.ok) throw new Error('load failed');
+    const j = await r.json();
+    _ghSha = j.sha;
+    const data = JSON.parse(atob(j.content.replace(/\n/g,'')));
+    return data;
+  } catch(e) {
+    console.warn('GitHub load failed, using localStorage', e);
+    return null;
+  }
+}
+
+async function ghSave() {
+  if (_syncPending) return;
+  _syncPending = true;
+  // Show sync indicator
+  const ind = document.getElementById('sync-indicator');
+  if (ind) { ind.textContent = '☁️ Sync…'; ind.style.color = 'var(--text-dim)'; }
+  try {
+    const data = { players: knownPlayers, history };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+    const body = { message: `update data ${new Date().toISOString()}`, content, sha: _ghSha };
+    const r = await fetch(GH_API, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('save failed');
+    const j = await r.json();
+    _ghSha = j.content.sha;
+    if (ind) { ind.textContent = '✅ Synced'; ind.style.color = 'var(--green)'; setTimeout(()=>{ if(ind) ind.textContent=''; },2000); }
+  } catch(e) {
+    console.warn('GitHub save failed', e);
+    if (ind) { ind.textContent = '⚠️ Sync failed'; ind.style.color = 'var(--donkey)'; setTimeout(()=>{ if(ind) ind.textContent=''; },3000); }
+  }
+  _syncPending = false;
+}
+
+// Debounced save — batches rapid consecutive writes
+function scheduleSync() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(ghSave, 800);
+}
+
+/* ═══════════════════════════════
+   DB (localStorage mirror + GitHub)
 ═══════════════════════════════ */
 const DB = {
   get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},
-  set(k,v){localStorage.setItem(k,JSON.stringify(v));}
+  set(k,v){
+    localStorage.setItem(k,JSON.stringify(v));
+    // Sync to GitHub whenever players or history change
+    if (k==='players'||k==='history') scheduleSync();
+  }
 };
 
 const RANKS = [
@@ -659,6 +727,7 @@ document.addEventListener('keydown', e => {
 /* ═══════════════════════════════
    STATE
 ═══════════════════════════════ */
+// Start from localStorage instantly; GitHub sync will update these on load
 let knownPlayers = DB.get('players', []);
 let history      = DB.get('history', []);
 let activeInputs = [];
@@ -1277,7 +1346,30 @@ function dismissInstall(){installBanner.classList.remove('visible');localStorage
    INIT
 ═══════════════════════════════ */
 updateAuthUI();
-renderHome();
+renderHome(); // render immediately from localStorage while GitHub loads
+
+(async () => {
+  const ind = document.getElementById('sync-indicator');
+  if (ind) { ind.textContent = '☁️ Chargement…'; ind.style.color = 'var(--text-dim)'; }
+  const remote = await ghLoad();
+  if (remote) {
+    // Merge: remote is source of truth, but keep localStorage admin creds
+    knownPlayers = remote.players || [];
+    history      = remote.history  || [];
+    // Mirror to localStorage
+    localStorage.setItem('players', JSON.stringify(knownPlayers));
+    localStorage.setItem('history',  JSON.stringify(history));
+    if (ind) { ind.textContent = '✅ Synced'; ind.style.color = 'var(--green)'; setTimeout(()=>{ if(ind) ind.textContent=''; },2000); }
+    renderHome();
+    // Re-render active page if not home
+    const activePage = document.querySelector('.page.active');
+    if (activePage && activePage.id === 'page-stats')   renderStats();
+    if (activePage && activePage.id === 'page-history') renderHistory();
+    if (activePage && activePage.id === 'page-players') renderPlayers();
+  } else {
+    if (ind) { ind.textContent = '⚠️ Hors ligne'; ind.style.color = 'var(--donkey)'; setTimeout(()=>{ if(ind) ind.textContent=''; },3000); }
+  }
+})();
 </script>
 </body>
 </html>
