@@ -1,1 +1,8 @@
-{"players":[],"history":[],"adminCreds":null}
+{
+  "players": [],
+  "history": [],
+  "adminCreds": {
+    "username": "الرشام",
+    "passwordHash": "1qjxyw2"
+  }
+}
