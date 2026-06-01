@@ -206,7 +206,39 @@
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 
-  /* EXPORT/IMPORT BUTTONS */
+  /* COLOR DROPDOWN */
+  .color-select-wrap{display:flex;align-items:center;gap:8px;margin-top:6px;}
+  .color-select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:700;padding:5px 8px;outline:none;cursor:pointer;flex:1;transition:border-color .2s;}
+  .color-select:focus{border-color:var(--accent);}
+  .color-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.15);}
+  .color-dot.blue  {background:#3b82f6;}
+  .color-dot.red   {background:#ef4444;}
+  .color-dot.green {background:#22c55e;}
+  .color-dot.yellow{background:#eab308;}
+
+  /* COLOR STATS TABLE */
+  .color-stats-section{margin-top:24px;}
+  .color-stats-grid{display:grid;grid-template-columns:auto 1fr 1fr 1fr 1fr;gap:0;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+  .csg-header{background:var(--surface2);font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text-dim);padding:8px 6px;text-align:center;border-bottom:1px solid var(--border);}
+  .csg-header:first-child{text-align:left;padding-left:12px;}
+  .csg-row{display:contents;}
+  .csg-cell{padding:8px 6px;text-align:center;font-size:.8rem;font-weight:800;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;gap:4px;}
+  .csg-cell:first-child{justify-content:flex-start;padding-left:12px;gap:8px;}
+  .csg-row:last-child .csg-cell{border-bottom:none;}
+  .csg-num{font-family:'Bebas Neue',sans-serif;font-size:1rem;}
+  .csg-num.gold-c{color:var(--gold);}
+  .csg-num.silver-c{color:var(--silver);}
+  .csg-num.bronze-c{color:var(--bronze);}
+  .csg-num.donkey-c{color:var(--donkey);}
+  .csg-zero{color:var(--border);font-size:.75rem;}
+
+  /* color circle emojis in history */
+  .history-color-dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0;border:1px solid rgba(255,255,255,.2);}
+  .hcd-blue  {background:#3b82f6;}
+  .hcd-red   {background:#ef4444;}
+  .hcd-green {background:#22c55e;}
+  .hcd-yellow{background:#eab308;}
+
   .data-actions{display:flex;gap:8px;margin-bottom:20px;}
   .data-btn{flex:1;padding:11px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;text-transform:uppercase;letter-spacing:.5px;}
   .data-btn:hover{color:var(--text);border-color:var(--accent);background:rgba(124,92,252,.12);}
@@ -283,6 +315,10 @@
     <div class="section-title">📊 Classement</div>
     <div class="score-legend">Score = 🥇×3 + 🥈×2 + 🥉×1 − 🫏×1</div>
     <div id="stats-ranking" class="ranking-list"></div>
+    <div class="color-stats-section">
+      <div class="section-title">🎨 Stats par couleur</div>
+      <div id="color-stats-grid"></div>
+    </div>
   </div>
 
   <!-- HISTORY -->
@@ -378,6 +414,13 @@ const RANKS = [
   {key:'silver',emoji:'🥈',label:'2ème', cls:'silver'},
   {key:'bronze',emoji:'🥉',label:'3ème', cls:'bronze'},
   {key:'donkey',emoji:'🫏',label:'Âne',  cls:'donkey'},
+];
+
+const COLORS = [
+  {key:'blue',   emoji:'🔵', label:'Bleu'},
+  {key:'red',    emoji:'🔴', label:'Rouge'},
+  {key:'green',  emoji:'🟢', label:'Vert'},
+  {key:'yellow', emoji:'🟡', label:'Jaune'},
 ];
 
 /* ═══════════════════════════════
@@ -660,18 +703,26 @@ function buildInputs() {
     wrap.className = 'player-input-card';
     wrap.innerHTML = `
       <div class="rank-badge ${rank.cls}">${rank.emoji}</div>
-      <div class="player-input-wrap">
+      <div class="player-input-wrap" style="flex:1">
         <div class="player-rank-label">${rank.label}</div>
         <input class="player-input" id="pi-${i}" type="text" placeholder="Nom du joueur…" autocomplete="off">
         <div class="autocomplete-list" id="ac-${i}"></div>
+        <div class="color-select-wrap">
+          <div class="color-dot" id="cdot-${i}"></div>
+          <select class="color-select" id="pc-${i}" onchange="updateColorDot(${i})">
+            <option value="">— Couleur —</option>
+            ${COLORS.map(c=>`<option value="${c.key}">${c.emoji} ${c.label}</option>`).join('')}
+          </select>
+        </div>
       </div>`;
     container.appendChild(wrap);
     const input = wrap.querySelector(`#pi-${i}`);
     const acList = wrap.querySelector(`#ac-${i}`);
-    activeInputs.push({input,acList,rank});
+    activeInputs.push({input, acList, rank});
     input.addEventListener('input', ()=>handleAutoComplete(i));
     input.addEventListener('keydown', e=>{ if(e.key==='Escape') acList.classList.remove('open'); });
     input.addEventListener('change', checkConfirmBtn);
+    wrap.querySelector(`#pc-${i}`).addEventListener('change', checkConfirmBtn);
   });
 }
 
@@ -696,17 +747,30 @@ function selectPlayer(idx, name) {
   checkConfirmBtn();
 }
 
+function updateColorDot(i) {
+  const sel = document.getElementById(`pc-${i}`);
+  const dot = document.getElementById(`cdot-${i}`);
+  dot.className = 'color-dot' + (sel.value ? ` ${sel.value}` : '');
+}
+
 function checkConfirmBtn() {
-  document.getElementById('confirm-btn').classList.toggle('visible', activeInputs.every(x=>x.input.value.trim().length>0));
+  const namesOk = activeInputs.every(x=>x.input.value.trim().length>0);
+  const colorsOk = activeInputs.every((_,i)=>document.getElementById(`pc-${i}`).value !== '');
+  // also validate no duplicate colors
+  const selectedColors = activeInputs.map((_,i)=>document.getElementById(`pc-${i}`).value).filter(Boolean);
+  const colorsUnique = new Set(selectedColors).size === selectedColors.length;
+  document.getElementById('confirm-btn').classList.toggle('visible', namesOk && colorsOk && colorsUnique);
 }
 
 function confirmGame() {
   const names = activeInputs.map(x=>x.input.value.trim());
+  const colors = activeInputs.map((_,i)=>document.getElementById(`pc-${i}`).value);
   if (new Set(names.map(n=>n.toLowerCase())).size < 4) { showToast('⚠️ 4 noms différents requis !'); return; }
+  if (new Set(colors).size < 4) { showToast('⚠️ 4 couleurs différentes requises !'); return; }
   const entry = {
     id: Date.now(),
     date: new Date().toLocaleString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-    players: activeInputs.map((x,i)=>({name:x.input.value.trim(),rank:RANKS[i].key}))
+    players: activeInputs.map((x,i)=>({name:x.input.value.trim(), rank:RANKS[i].key, color:colors[i]}))
   };
   history.unshift(entry);
   DB.set('history', history);
@@ -740,10 +804,11 @@ function renderHome() {
     document.getElementById('last-game-players').innerHTML = g.players.map(p=>{
       const r = RANKS.find(r=>r.key===p.rank);
       const pl = getPlayerObj(p.name);
+      const colorDot = p.color ? `<span class="history-color-dot hcd-${p.color}" style="margin-left:4px"></span>` : '';
       return `<div class="last-game-row">
         <div class="lg-rank">${r.emoji}</div>
         <div class="lg-avatar">${getAvatarEl(pl)}</div>
-        <div class="lg-name">${p.name}</div>
+        <div class="lg-name">${p.name}${colorDot}</div>
         <div class="lg-pos-tag pos-${r.key}">${r.label}</div>
       </div>`;
     }).join('');
@@ -768,9 +833,53 @@ function renderStats() {
   const el = document.getElementById('stats-ranking');
   if (!ranked.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">Aucune partie jouée</div></div>`;
+  } else {
+    el.innerHTML = ranked.map((p,i)=>rankingCardHTML(p,i)).join('');
+  }
+  renderColorStats();
+}
+
+function renderColorStats() {
+  const el = document.getElementById('color-stats-grid');
+  // Build stats: for each color, count how many times it ended in each rank
+  const stats = {}; // stats[colorKey][rankKey] = count
+  COLORS.forEach(c => { stats[c.key] = {gold:0,silver:0,bronze:0,donkey:0,total:0}; });
+  let hasColorData = false;
+  history.forEach(g => {
+    g.players.forEach(p => {
+      if (p.color && stats[p.color]) {
+        stats[p.color][p.rank]++;
+        stats[p.color].total++;
+        hasColorData = true;
+      }
+    });
+  });
+  if (!hasColorData) {
+    el.innerHTML = `<div style="font-size:.8rem;color:var(--text-dim);padding:12px 0;font-weight:700">Aucune partie avec couleurs enregistrée</div>`;
     return;
   }
-  el.innerHTML = ranked.map((p,i)=>rankingCardHTML(p,i)).join('');
+  el.innerHTML = `
+    <div class="color-stats-grid">
+      <div class="csg-header">Couleur</div>
+      <div class="csg-header">🥇</div>
+      <div class="csg-header">🥈</div>
+      <div class="csg-header">🥉</div>
+      <div class="csg-header">🫏</div>
+      ${COLORS.map(c => {
+        const s = stats[c.key];
+        const fmt = (n, cls) => n > 0
+          ? `<span class="csg-num ${cls}">${n}</span>`
+          : `<span class="csg-zero">—</span>`;
+        return `
+        <div class="csg-row">
+          <div class="csg-cell"><div class="color-dot ${c.key}"></div>${c.emoji} ${c.label}</div>
+          <div class="csg-cell">${fmt(s.gold,'gold-c')}</div>
+          <div class="csg-cell">${fmt(s.silver,'silver-c')}</div>
+          <div class="csg-cell">${fmt(s.bronze,'bronze-c')}</div>
+          <div class="csg-cell">${fmt(s.donkey,'donkey-c')}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 function rankingCardHTML(p,i) {
@@ -812,9 +921,10 @@ function renderHistory() {
       <div class="history-date">${g.date}</div>
       ${g.players.map(p=>{
         const r = RANKS.find(r=>r.key===p.rank);
+        const colorDot = p.color ? `<span class="history-color-dot hcd-${p.color}" title="${p.color}"></span>` : '';
         return `<div class="history-row">
           <div class="history-rank">${r.emoji}</div>
-          <div class="history-name">${p.name}</div>
+          <div class="history-name">${p.name} ${colorDot}</div>
           <div class="lg-pos-tag pos-${r.key}">${r.label}</div>
         </div>`;
       }).join('')}
@@ -1031,6 +1141,34 @@ function openPlayerDetail(name) {
     </div>`;
   }).join('') : `<div style="font-size:.8rem;color:var(--text-dim);padding:8px 0">Jamais perdu contre quelqu'un comme âne</div>`;
 
+  // Color performance for this player
+  const colorPerf = {};
+  COLORS.forEach(c => { colorPerf[c.key] = {gold:0,silver:0,bronze:0,donkey:0,total:0}; });
+  history.forEach(g => {
+    const pp = g.players.find(p=>p.name.toLowerCase()===name.toLowerCase());
+    if (pp && pp.color && colorPerf[pp.color]) {
+      colorPerf[pp.color][pp.rank]++;
+      colorPerf[pp.color].total++;
+    }
+  });
+  const colorRows = COLORS.filter(c=>colorPerf[c.key].total>0).map(c=>{
+    const cp = colorPerf[c.key];
+    return `<div class="nemesis-card" style="gap:8px">
+      <div class="color-dot ${c.key}" style="flex-shrink:0"></div>
+      <div style="font-weight:900;font-size:.85rem;flex:1">${c.emoji} ${c.label} <span style="font-weight:600;font-size:.75rem;color:var(--text-dim)">(${cp.total}×)</span></div>
+      <div style="display:flex;gap:4px;font-size:.72rem">
+        ${cp.gold?`<span style="color:var(--gold);font-weight:800">🥇${cp.gold}</span>`:''}
+        ${cp.silver?`<span style="color:var(--silver);font-weight:800">🥈${cp.silver}</span>`:''}
+        ${cp.bronze?`<span style="color:var(--bronze);font-weight:800">🥉${cp.bronze}</span>`:''}
+        ${cp.donkey?`<span style="color:var(--donkey);font-weight:800">🫏${cp.donkey}</span>`:''}
+      </div>
+    </div>`;
+  });
+  const colorDetailHTML = colorRows.length ? `
+    <div class="detail-section">🎨 Performances par couleur</div>
+    ${colorRows.join('')}
+  ` : '';
+
   const content = `
     <div class="detail-avatar-big">${getAvatarEl(pl)}</div>
     <div class="detail-name">${name}</div>
@@ -1058,6 +1196,7 @@ function openPlayerDetail(name) {
     ${coHTML}
     <div class="detail-section">🫏 Perd contre (comme âne)</div>
     ${lostToHTML}
+    ${colorDetailHTML}
   `;
 
   document.getElementById('player-detail-content').innerHTML = content;
