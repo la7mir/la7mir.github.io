@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🫏 الحمار</title>
+<meta name="theme-color" content="#0d0d14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Donkey">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230d0d14'/%3E%3Ctext x='256' y='340' font-size='300' text-anchor='middle'%3E🫏%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Donkey+Card+Game%22%2C%22short_name%22%3A%22Donkey%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230d0d14%22%2C%22theme_color%22%3A%22%230d0d14%22%2C%22orientation%22%3A%22portrait%22%7D">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&family=Tajawal:wght@900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0d14; --surface:#16161f; --surface2:#1e1e2e; --border:#2a2a3e;
+    --gold:#f5c842; --silver:#c0c8d8; --bronze:#cd7f32; --donkey:#ff6b6b;
+    --accent:#7c5cfc; --accent2:#00e5ff; --green:#00c48c;
+    --text:#f0f0f8; --text-dim:#7878a0;
+    --radius:16px; --radius-sm:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;position:relative;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 80% 10%,rgba(124,92,252,.12) 0%,transparent 70%),radial-gradient(ellipse 50% 30% at 10% 90%,rgba(0,229,255,.08) 0%,transparent 70%);pointer-events:none;z-index:0;}
+  #app{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 0 90px;}
+
+  /* HEADER */
+  .app-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);background:rgba(13,13,20,.85);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;}
+  .app-logo{display:flex;align-items:center;gap:10px;}
+  .app-logo-text{font-family:'Tajawal',sans-serif;font-weight:900;font-size:1.75rem;letter-spacing:1px;line-height:1;direction:rtl;}
+  .app-logo-text span{color:var(--accent);}
+  .app-logo svg{width:38px;height:38px;flex-shrink:0;}
+  .header-right{display:flex;align-items:center;gap:8px;}
+  .viewer-badge{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;padding:4px 10px;border-radius:20px;background:rgba(120,120,160,.15);color:var(--text-dim);border:1px solid var(--border);}
+  .admin-badge{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;padding:4px 10px;border-radius:20px;background:rgba(124,92,252,.18);color:var(--accent);border:1px solid rgba(124,92,252,.3);}
+  .icon-btn{width:36px;height:36px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;}
+  .icon-btn:hover{color:var(--text);border-color:var(--accent);background:rgba(124,92,252,.15);}
+
+  /* BOTTOM NAV */
+  .bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(13,13,20,.92);backdrop-filter:blur(16px);border-top:1px solid var(--border);display:flex;z-index:100;}
+  .nav-btn{flex:1;padding:12px 6px 16px;border:none;background:transparent;color:var(--text-dim);font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:color .2s;text-transform:uppercase;letter-spacing:.5px;}
+  .nav-btn .nav-icon{font-size:1.3rem;}
+  .nav-btn.active{color:var(--accent);}
+  .nav-btn.active .nav-icon{filter:drop-shadow(0 0 6px var(--accent));}
+
+  /* PAGES */
+  .page{display:none;padding:20px;animation:fadeIn .25s ease;}
+  .page.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* SECTION TITLE */
+  .section-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:2px;color:var(--text-dim);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  /* NEW GAME BUTTON */
+  .nouvelle-partie-btn{width:100%;padding:20px;background:linear-gradient(135deg,var(--accent),#5b3fd4);border:none;border-radius:var(--radius);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:3px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(124,92,252,.35);margin-bottom:24px;}
+  .nouvelle-partie-btn:active{transform:scale(.98);}
+  .viewer-lock-msg{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:24px;display:flex;align-items:center;gap:12px;font-size:.85rem;color:var(--text-dim);font-weight:700;}
+  .viewer-lock-msg .lock-icon{font-size:1.4rem;flex-shrink:0;}
+  .viewer-lock-msg a{color:var(--accent);cursor:pointer;text-decoration:underline;}
+
+  /* PLAYER INPUT CARDS */
+  .player-inputs{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
+  .player-input-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:12px;transition:border-color .2s;}
+  .player-input-card:focus-within{border-color:var(--accent);}
+  .rank-badge{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;background:var(--surface2);}
+  .rank-badge.gold{background:rgba(245,200,66,.15);}
+  .rank-badge.silver{background:rgba(192,200,216,.12);}
+  .rank-badge.bronze{background:rgba(205,127,50,.15);}
+  .rank-badge.donkey{background:rgba(255,107,107,.15);}
+  .player-input-wrap{flex:1;position:relative;}
+  .player-input{width:100%;border:none;background:transparent;color:var(--text);font-family:'Nunito',sans-serif;font-size:1rem;font-weight:700;outline:none;padding:2px 0;}
+  .player-input::placeholder{color:var(--text-dim);font-weight:600;}
+  .player-rank-label{font-size:.7rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;}
+  .autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:200;max-height:160px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+  .autocomplete-list.open{display:block;}
+  .autocomplete-item{padding:10px 14px;cursor:pointer;font-size:.9rem;display:flex;align-items:center;gap:10px;transition:background .15s;}
+  .autocomplete-item:hover{background:rgba(124,92,252,.18);}
+  .autocomplete-avatar{width:28px;height:28px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--text-dim);flex-shrink:0;overflow:hidden;}
+
+  /* CONFIRM BTN */
+  .confirm-btn{width:100%;padding:16px;background:linear-gradient(135deg,#00c48c,#00a574);border:none;border-radius:var(--radius);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;cursor:pointer;transition:all .2s;box-shadow:0 6px 20px rgba(0,196,140,.3);display:none;}
+  .confirm-btn.visible{display:block;}
+  .confirm-btn:active{transform:scale(.98);}
+
+  /* LAST GAME */
+  .last-game-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:20px;}
+  .last-game-title{font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px;font-weight:800;}
+  .last-game-players{display:flex;flex-direction:column;gap:8px;}
+  .last-game-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--surface2);}
+  .lg-rank{font-size:1.2rem;width:28px;text-align:center;}
+  .lg-avatar{width:32px;height:32px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--text-dim);overflow:hidden;flex-shrink:0;}
+  .lg-name{flex:1;font-weight:800;font-size:.95rem;}
+  .lg-pos-tag{font-size:.65rem;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:20px;letter-spacing:.6px;}
+  .pos-gold{background:rgba(245,200,66,.2);color:var(--gold);}
+  .pos-silver{background:rgba(192,200,216,.15);color:var(--silver);}
+  .pos-bronze{background:rgba(205,127,50,.2);color:var(--bronze);}
+  .pos-donkey{background:rgba(255,107,107,.18);color:var(--donkey);}
+
+  /* RANKING */
+  .ranking-list{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
+  .ranking-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;}
+  .ranking-card.rank-1{border-color:rgba(245,200,66,.4);background:rgba(245,200,66,.05);}
+  .ranking-card.rank-2{border-color:rgba(192,200,216,.3);}
+  .ranking-card.rank-3{border-color:rgba(205,127,50,.3);}
+  .ranking-num{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--text-dim);width:28px;text-align:center;flex-shrink:0;}
+  .ranking-card.rank-1 .ranking-num{color:var(--gold);}
+  .ranking-card.rank-2 .ranking-num{color:var(--silver);}
+  .ranking-card.rank-3 .ranking-num{color:var(--bronze);}
+  .ranking-avatar{width:48px;height:48px;border-radius:50%;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.3rem;overflow:hidden;}
+  .ranking-avatar img,.lg-avatar img,.edit-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+  .ranking-info{flex:1;min-width:0;}
+  .ranking-name{font-weight:900;font-size:1rem;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ranking-medals{display:flex;gap:6px;flex-wrap:wrap;}
+  .medal-chip{display:flex;align-items:center;gap:3px;font-size:.72rem;font-weight:800;padding:2px 7px;border-radius:20px;}
+  .medal-chip.gold{background:rgba(245,200,66,.18);color:var(--gold);}
+  .medal-chip.silver{background:rgba(192,200,216,.14);color:var(--silver);}
+  .medal-chip.bronze{background:rgba(205,127,50,.18);color:var(--bronze);}
+  .medal-chip.donkey{background:rgba(255,107,107,.15);color:var(--donkey);}
+  .ranking-games{font-size:.72rem;color:var(--text-dim);font-weight:700;margin-top:2px;}
+  .ranking-score{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--accent2);flex-shrink:0;}
+  .score-legend{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:.72rem;color:var(--text-dim);margin-bottom:16px;line-height:1.7;}
+
+  /* HISTORY */
+  .history-list{display:flex;flex-direction:column;gap:10px;}
+  .history-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;}
+  .history-date{font-size:.68rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;}
+  .history-actions{position:absolute;top:10px;right:12px;display:flex;gap:6px;}
+  .history-act-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);padding:5px 9px;cursor:pointer;font-size:.75rem;font-weight:700;transition:all .2s;}
+  .history-act-btn.edit-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .history-act-btn.del-btn:hover{border-color:var(--donkey);color:var(--donkey);}
+  .history-row{display:flex;align-items:center;gap:8px;padding:4px 0;}
+  .history-rank{font-size:1rem;width:22px;}
+  .history-name{font-weight:800;font-size:.9rem;flex:1;}
+
+  /* HISTORY EDIT INLINE */
+  .history-edit-form{margin-top:12px;border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:8px;}
+  .edit-row{display:flex;align-items:center;gap:8px;}
+  .edit-row-label{font-size:.75rem;width:22px;text-align:center;flex-shrink:0;}
+  .edit-row-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;padding:8px 10px;outline:none;}
+  .edit-row-input:focus{border-color:var(--accent);}
+  .edit-save-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--green),#00a574);border:none;border-radius:var(--radius-sm);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:1.5px;cursor:pointer;margin-top:4px;}
+
+  /* PLAYERS PAGE */
+  .players-grid{display:flex;flex-direction:column;gap:10px;}
+  .player-edit-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:14px;}
+  .edit-avatar-wrap{position:relative;cursor:pointer;flex-shrink:0;}
+  .edit-avatar{width:56px;height:56px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;overflow:hidden;}
+  .edit-avatar-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(124,92,252,.7);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;font-size:.9rem;}
+  .edit-avatar-wrap:hover .edit-avatar-overlay{opacity:1;}
+  .edit-info{flex:1;min-width:0;}
+  .edit-name{font-weight:900;font-size:1rem;margin-bottom:4px;}
+  .edit-stats-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+  /* stat bars */
+  .stat-bars{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+  .stat-bar-row{display:flex;align-items:center;gap:8px;}
+  .stat-bar-label{font-size:.68rem;font-weight:800;color:var(--text-dim);width:80px;flex-shrink:0;}
+  .stat-bar-track{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .stat-bar-fill{height:100%;border-radius:3px;transition:width .5s ease;}
+  .stat-bar-fill.gold-fill{background:var(--gold);}
+  .stat-bar-fill.donkey-fill{background:var(--donkey);}
+  .stat-bar-val{font-size:.68rem;font-weight:900;width:36px;text-align:right;flex-shrink:0;}
+  .edit-del-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:.75rem;font-weight:700;transition:all .2s;flex-shrink:0;align-self:flex-start;}
+  .edit-del-btn:hover{border-color:var(--donkey);color:var(--donkey);}
+  .file-input-hidden{display:none;}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:300;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
+  .modal-overlay.open{opacity:1;pointer-events:all;}
+  .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;padding:28px 24px 36px;width:100%;max-width:480px;transform:translateY(60px);transition:transform .3s ease;max-height:90dvh;overflow-y:auto;}
+  .modal-overlay.open .modal-box{transform:none;}
+  .modal-title{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:2px;margin-bottom:20px;}
+  .modal-close{float:right;background:transparent;border:none;color:var(--text-dim);font-size:1.4rem;cursor:pointer;margin-top:-4px;}
+
+  /* AUTH FORM */
+  .auth-field{margin-bottom:14px;}
+  .auth-label{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:6px;display:block;}
+  .auth-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Nunito',sans-serif;font-size:1rem;font-weight:700;padding:12px 14px;outline:none;transition:border-color .2s;}
+  .auth-input:focus{border-color:var(--accent);}
+  .auth-error{font-size:.8rem;color:var(--donkey);font-weight:700;margin-top:-8px;margin-bottom:12px;display:none;}
+  .auth-error.visible{display:block;}
+  .auth-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--accent),#5b3fd4);border:none;border-radius:var(--radius);color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:2px;cursor:pointer;margin-top:4px;}
+  .auth-divider{text-align:center;font-size:.75rem;color:var(--text-dim);margin:14px 0;font-weight:700;}
+  .auth-setup-hint{font-size:.75rem;color:var(--text-dim);text-align:center;margin-top:12px;line-height:1.5;}
+  .auth-setup-hint b{color:var(--text);}
+
+  /* INSTALL BANNER */
+  .install-banner{position:fixed;top:0;left:50%;transform:translateX(-50%) translateY(-100%);width:100%;max-width:480px;background:linear-gradient(135deg,var(--accent),#5b3fd4);padding:14px 18px;display:flex;align-items:center;gap:12px;z-index:500;transition:transform .4s cubic-bezier(.175,.885,.32,1.275);box-shadow:0 4px 20px rgba(124,92,252,.4);}
+  .install-banner.visible{transform:translateX(-50%) translateY(0);}
+  .install-banner-text{flex:1;font-size:.85rem;font-weight:800;color:#fff;line-height:1.3;}
+  .install-banner-text span{display:block;font-size:.7rem;font-weight:600;opacity:.85;margin-top:1px;}
+  .install-btn-pwa{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 14px;border-radius:20px;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;cursor:pointer;white-space:nowrap;}
+  .install-dismiss{background:transparent;border:none;color:rgba(255,255,255,.7);font-size:1.1rem;cursor:pointer;padding:4px;flex-shrink:0;}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1px solid var(--border);border-radius:40px;padding:10px 22px;font-size:.85rem;font-weight:700;opacity:0;pointer-events:none;transition:all .3s;z-index:400;white-space:nowrap;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* EMPTY STATE */
+  .empty-state{text-align:center;padding:48px 20px;color:var(--text-dim);}
+  .empty-icon{font-size:3rem;margin-bottom:12px;}
+  .empty-text{font-weight:700;font-size:.95rem;}
+
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+  /* EXPORT/IMPORT BUTTONS */
+  .data-actions{display:flex;gap:8px;margin-bottom:20px;}
+  .data-btn{flex:1;padding:11px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;text-transform:uppercase;letter-spacing:.5px;}
+  .data-btn:hover{color:var(--text);border-color:var(--accent);background:rgba(124,92,252,.12);}
+  .data-btn.import-btn:hover{border-color:var(--green);color:var(--green);background:rgba(0,196,140,.08);}
+
+  /* LOST-TO BADGE */
+  .lost-to-tag{font-size:.68rem;color:var(--donkey);font-weight:800;margin-top:3px;display:flex;align-items:center;gap:4px;}
+  .lost-to-tag span{color:var(--text-dim);font-weight:600;}
+
+  /* PLAYER DETAIL MODAL */
+  .detail-avatar-big{width:72px;height:72px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden;flex-shrink:0;margin:0 auto 14px;}
+  .detail-name{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:2px;text-align:center;margin-bottom:4px;}
+  .detail-score-big{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--accent2);text-align:center;line-height:1;}
+  .detail-score-label{font-size:.68rem;color:var(--text-dim);text-align:center;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:16px;}
+  .detail-medals{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+  .detail-section{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:8px;margin-top:16px;}
+  .detail-stat-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .detail-stat-label{font-size:.75rem;font-weight:700;color:var(--text-dim);width:110px;flex-shrink:0;}
+  .detail-stat-val{font-weight:900;font-size:.9rem;color:var(--text);}
+  .nemesis-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+  .nemesis-name{font-weight:900;font-size:.9rem;flex:1;}
+  .nemesis-count{font-size:.75rem;color:var(--text-dim);font-weight:700;}
+  .nemesis-chip{font-size:.65rem;font-weight:800;padding:2px 7px;border-radius:20px;background:rgba(255,107,107,.18);color:var(--donkey);white-space:nowrap;}
+  .played-with-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:6px;cursor:default;}
+  .played-with-name{font-weight:900;font-size:.9rem;flex:1;}
+  .played-with-count{font-size:.78rem;color:var(--accent2);font-weight:800;}
+  .clickable-name{cursor:pointer;text-decoration:underline;text-decoration-color:rgba(124,92,252,.4);text-underline-offset:2px;}
+  .clickable-name:hover{color:var(--accent2);}
+
+  /* CHANGE PASSWORD SECTION */
+  .chpass-section{margin-top:18px;border-top:1px solid var(--border);padding-top:18px;}
+  .chpass-title{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<!-- INSTALL BANNER -->
+<div class="install-banner" id="install-banner">
+  <div style="font-size:1.8rem">🫏</div>
+  <div class="install-banner-text">Installer l'application<span>Accès rapide depuis l'écran d'accueil</span></div>
+  <button class="install-btn-pwa" id="pwa-install-btn">Installer</button>
+  <button class="install-dismiss" onclick="dismissInstall()">✕</button>
+</div>
+
+<div id="app">
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="app-logo"><div class="app-logo-text">الحـ<span>مار</span>🫏</div>
+    </div>
+    <div class="header-right">
+      <div id="role-badge" class="viewer-badge">👁 Visiteur</div>
+      <button class="icon-btn" id="auth-btn" onclick="openAuthModal()" title="Connexion">🔐</button>
+    </div>
+  </header>
+
+  <!-- HOME -->
+  <div id="page-home" class="page active">
+    <div style="height:20px"></div>
+    <div id="home-action-area"></div>
+    <div id="last-game-section" style="display:none">
+      <div class="section-title">Dernière partie</div>
+      <div class="last-game-card">
+        <div class="last-game-title" id="last-game-date"></div>
+        <div class="last-game-players" id="last-game-players"></div>
+      </div>
+    </div>
+    <div class="section-title">Classement rapide</div>
+    <div id="quick-ranking"></div>
+  </div>
+
+  <!-- STATS -->
+  <div id="page-stats" class="page">
+    <div style="height:10px"></div>
+    <div class="section-title">📊 Classement</div>
+    <div class="score-legend">Score = 🥇×3 + 🥈×2 + 🥉×1 − 🫏×1</div>
+    <div id="stats-ranking" class="ranking-list"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="page-history" class="page">
+    <div style="height:10px"></div>
+    <div class="section-title">📜 Historique</div>
+    <div id="history-list" class="history-list"></div>
+  </div>
+
+  <!-- PLAYERS -->
+  <div id="page-players" class="page">
+    <div style="height:10px"></div>
+    <div class="section-title">👤 Joueurs</div>
+    <div id="data-action-area"></div>
+    <div id="players-grid" class="players-grid"></div>
+    <div style="height:16px"></div>
+    <p id="avatar-hint" style="font-size:.75rem;color:var(--text-dim);text-align:center;font-weight:700;display:none">Appuyez sur l'avatar pour changer la photo</p>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="showPage('home')"><span class="nav-icon">🏠</span>Accueil</button>
+  <button class="nav-btn" id="nav-stats" onclick="showPage('stats')"><span class="nav-icon">📊</span>Stats</button>
+  <button class="nav-btn" id="nav-history" onclick="showPage('history')"><span class="nav-icon">📜</span>Historique</button>
+  <button class="nav-btn" id="nav-players" onclick="showPage('players')"><span class="nav-icon">👤</span>Joueurs</button>
+</nav>
+
+<!-- NEW GAME MODAL -->
+<div class="modal-overlay" id="modal-newgame">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-newgame')">✕</button>
+    <div class="modal-title">Nouvelle Partie</div>
+    <div class="player-inputs" id="player-inputs-container"></div>
+    <button class="confirm-btn" id="confirm-btn" onclick="confirmGame()">🎮 Confirmer la partie</button>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="modal-auth">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-auth')">✕</button>
+    <div class="modal-title" id="auth-modal-title">Connexion</div>
+    <div id="auth-form-area"></div>
+  </div>
+</div>
+
+<!-- PLAYER DETAIL MODAL -->
+<div class="modal-overlay" id="modal-player-detail">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-player-detail')">✕</button>
+    <div id="player-detail-content"></div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div class="modal-overlay" id="modal-chpass">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-chpass')">✕</button>
+    <div class="modal-title">Changer le mot de passe</div>
+    <div class="auth-field">
+      <label class="auth-label">Mot de passe actuel</label>
+      <input class="auth-input" id="chpass-old" type="password" placeholder="••••••••">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">Nouveau mot de passe</label>
+      <input class="auth-input" id="chpass-new" type="password" placeholder="Nouveau mot de passe">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">Confirmer le nouveau mot de passe</label>
+      <input class="auth-input" id="chpass-new2" type="password" placeholder="Répétez le nouveau mot de passe">
+    </div>
+    <div class="auth-error" id="chpass-error"></div>
+    <button class="auth-btn" onclick="doChangePassword()">🔑 Changer le mot de passe</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+<input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(this)">
+
+<script>
+/* ═══════════════════════════════
+   DB
+═══════════════════════════════ */
+const DB = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},
+  set(k,v){localStorage.setItem(k,JSON.stringify(v));}
+};
+
+const RANKS = [
+  {key:'gold',  emoji:'🥇',label:'1er',  cls:'gold'},
+  {key:'silver',emoji:'🥈',label:'2ème', cls:'silver'},
+  {key:'bronze',emoji:'🥉',label:'3ème', cls:'bronze'},
+  {key:'donkey',emoji:'🫏',label:'Âne',  cls:'donkey'},
+];
+
+/* ═══════════════════════════════
+   AUTH STATE
+═══════════════════════════════ */
+// Credentials stored as {username, passwordHash}
+// Default: no admin set yet → first login creates it
+let sessionAdmin = false; // true when logged in this session
+
+function hashStr(s) {
+  // Simple djb2 hash (no crypto needed for local app)
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  return (h >>> 0).toString(36);
+}
+
+function isAdmin() { return sessionAdmin; }
+
+function getCredentials() { return DB.get('admin-creds', null); }
+
+function tryLogin(username, password) {
+  const creds = getCredentials();
+  if (!creds) return false;
+  return creds.username === username.trim() && creds.passwordHash === hashStr(password);
+}
+
+function setupAdmin(username, password) {
+  DB.set('admin-creds', { username: username.trim(), passwordHash: hashStr(password) });
+}
+
+function logout() {
+  sessionAdmin = false;
+  updateAuthUI();
+  showToast('👋 Déconnecté');
+}
+
+function updateAuthUI() {
+  const badge = document.getElementById('role-badge');
+  const btn   = document.getElementById('auth-btn');
+  if (isAdmin()) {
+    badge.className = 'admin-badge';
+    badge.textContent = '🔑 Admin';
+    btn.textContent = '🚪';
+    btn.title = 'Se déconnecter';
+    btn.onclick = () => { if(confirm('Se déconnecter ?')) logout(); };
+  } else {
+    badge.className = 'viewer-badge';
+    badge.textContent = '👁 Visiteur';
+    btn.textContent = '🔐';
+    btn.title = 'Connexion admin';
+    btn.onclick = openAuthModal;
+  }
+}
+
+/* ═══════════════════════════════
+   AUTH MODAL
+═══════════════════════════════ */
+function openAuthModal() {
+  const creds = getCredentials();
+  const area  = document.getElementById('auth-form-area');
+  document.getElementById('auth-modal-title').textContent = creds ? 'Connexion Admin' : 'Créer un compte Admin';
+
+  if (creds) {
+    // Login form
+    area.innerHTML = `
+      <div class="auth-field">
+        <label class="auth-label">Nom d'utilisateur</label>
+        <input class="auth-input" id="login-user" type="text" placeholder="Votre identifiant" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Mot de passe</label>
+        <input class="auth-input" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div class="auth-error" id="login-error">Identifiants incorrects</div>
+      <button class="auth-btn" onclick="doLogin()">🔐 Se connecter</button>
+    `;
+    setTimeout(() => document.getElementById('login-user').focus(), 100);
+  } else {
+    // First-time setup
+    area.innerHTML = `
+      <div class="auth-setup-hint">Aucun compte admin n'existe encore.<br>Créez-en un pour gérer les parties.</div>
+      <div style="height:16px"></div>
+      <div class="auth-field">
+        <label class="auth-label">Nom d'utilisateur</label>
+        <input class="auth-input" id="setup-user" type="text" placeholder="Ex: admin" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Mot de passe</label>
+        <input class="auth-input" id="setup-pass" type="password" placeholder="Choisissez un mot de passe" autocomplete="new-password">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Confirmer le mot de passe</label>
+        <input class="auth-input" id="setup-pass2" type="password" placeholder="Répétez le mot de passe" autocomplete="new-password">
+      </div>
+      <div class="auth-error" id="setup-error"></div>
+      <button class="auth-btn" onclick="doSetup()">✅ Créer le compte</button>
+    `;
+  }
+  document.getElementById('modal-auth').classList.add('open');
+}
+
+function doLogin() {
+  const u = document.getElementById('login-user').value;
+  const p = document.getElementById('login-pass').value;
+  if (tryLogin(u, p)) {
+    sessionAdmin = true;
+    closeModal('modal-auth');
+    updateAuthUI();
+    showToast('✅ Connecté en tant qu\'admin !');
+    renderHome();
+  } else {
+    document.getElementById('login-error').classList.add('visible');
+  }
+}
+
+function doSetup() {
+  const u  = document.getElementById('setup-user').value.trim();
+  const p  = document.getElementById('setup-pass').value;
+  const p2 = document.getElementById('setup-pass2').value;
+  const err = document.getElementById('setup-error');
+  err.classList.remove('visible');
+  if (!u) { err.textContent='Nom d\'utilisateur requis'; err.classList.add('visible'); return; }
+  if (p.length < 4) { err.textContent='Mot de passe trop court (4 car. min)'; err.classList.add('visible'); return; }
+  if (p !== p2) { err.textContent='Les mots de passe ne correspondent pas'; err.classList.add('visible'); return; }
+  setupAdmin(u, p);
+  sessionAdmin = true;
+  closeModal('modal-auth');
+  updateAuthUI();
+  showToast('🎉 Compte admin créé !');
+  renderHome();
+}
+
+/* ═══════════════════════════════
+   CHANGE PASSWORD
+═══════════════════════════════ */
+function openChangePassword() {
+  closeModal('modal-auth');
+  document.getElementById('chpass-old').value = '';
+  document.getElementById('chpass-new').value = '';
+  document.getElementById('chpass-new2').value = '';
+  document.getElementById('chpass-error').classList.remove('visible');
+  document.getElementById('modal-chpass').classList.add('open');
+  setTimeout(()=>document.getElementById('chpass-old').focus(),100);
+}
+
+function doChangePassword() {
+  const oldPass = document.getElementById('chpass-old').value;
+  const newPass = document.getElementById('chpass-new').value;
+  const newPass2 = document.getElementById('chpass-new2').value;
+  const err = document.getElementById('chpass-error');
+  err.classList.remove('visible');
+  const creds = getCredentials();
+  if (!creds || creds.passwordHash !== hashStr(oldPass)) {
+    err.textContent = 'Mot de passe actuel incorrect';
+    err.classList.add('visible'); return;
+  }
+  if (newPass.length < 4) {
+    err.textContent = 'Nouveau mot de passe trop court (4 car. min)';
+    err.classList.add('visible'); return;
+  }
+  if (newPass !== newPass2) {
+    err.textContent = 'Les mots de passe ne correspondent pas';
+    err.classList.add('visible'); return;
+  }
+  DB.set('admin-creds', { username: creds.username, passwordHash: hashStr(newPass) });
+  closeModal('modal-chpass');
+  showToast('🔑 Mot de passe changé !');
+}
+
+/* ═══════════════════════════════
+   EXPORT / IMPORT
+═══════════════════════════════ */
+function exportData() {
+  const data = {
+    version: 1,
+    exported: new Date().toISOString(),
+    players: knownPlayers,
+    history: history
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `donkey-backup-${new Date().toLocaleDateString('fr-FR').replace(/\//g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📤 Données exportées !');
+}
+
+function triggerImport() {
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-file-input').click();
+}
+
+function handleImportFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.players || !data.history) throw new Error('Format invalide');
+      if (!confirm(`Importer ${data.history.length} partie(s) et ${data.players.length} joueur(s) ?\n\nCeci fusionnera avec les données existantes.`)) return;
+      // Merge players
+      data.players.forEach(p => {
+        if (!knownPlayers.find(kp=>kp.name.toLowerCase()===p.name.toLowerCase()))
+          knownPlayers.push(p);
+      });
+      // Merge history (avoid duplicates by id)
+      const existingIds = new Set(history.map(g=>g.id));
+      data.history.forEach(g => { if(!existingIds.has(g.id)) history.unshift(g); });
+      history.sort((a,b)=>b.id-a.id);
+      DB.set('players', knownPlayers);
+      DB.set('history', history);
+      renderPlayers();
+      showToast(`✅ Import réussi — ${data.history.length} parties !`);
+    } catch(err) {
+      showToast('⚠️ Fichier invalide ou corrompu');
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('modal-auth').classList.contains('open')) {
+      const loginPass = document.getElementById('login-pass');
+      const setupPass2 = document.getElementById('setup-pass2');
+      if (loginPass)  doLogin();
+      if (setupPass2) doSetup();
+    }
+  }
+});
+
+/* ═══════════════════════════════
+   STATE
+═══════════════════════════════ */
+let knownPlayers = DB.get('players', []);
+let history      = DB.get('history', []);
+let activeInputs = [];
+
+/* ═══════════════════════════════
+   NAVIGATION
+═══════════════════════════════ */
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if (name==='home')    renderHome();
+  if (name==='stats')   renderStats();
+  if (name==='history') renderHistory();
+  if (name==='players') renderPlayers();
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
+});
+
+/* ═══════════════════════════════
+   NEW GAME
+═══════════════════════════════ */
+function startNewGame() {
+  if (!isAdmin()) { openAuthModal(); return; }
+  buildInputs();
+  document.getElementById('modal-newgame').classList.add('open');
+}
+
+function buildInputs() {
+  activeInputs = [];
+  const container = document.getElementById('player-inputs-container');
+  container.innerHTML = '';
+  document.getElementById('confirm-btn').classList.remove('visible');
+  RANKS.forEach((rank, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'player-input-card';
+    wrap.innerHTML = `
+      <div class="rank-badge ${rank.cls}">${rank.emoji}</div>
+      <div class="player-input-wrap">
+        <div class="player-rank-label">${rank.label}</div>
+        <input class="player-input" id="pi-${i}" type="text" placeholder="Nom du joueur…" autocomplete="off">
+        <div class="autocomplete-list" id="ac-${i}"></div>
+      </div>`;
+    container.appendChild(wrap);
+    const input = wrap.querySelector(`#pi-${i}`);
+    const acList = wrap.querySelector(`#ac-${i}`);
+    activeInputs.push({input,acList,rank});
+    input.addEventListener('input', ()=>handleAutoComplete(i));
+    input.addEventListener('keydown', e=>{ if(e.key==='Escape') acList.classList.remove('open'); });
+    input.addEventListener('change', checkConfirmBtn);
+  });
+}
+
+function handleAutoComplete(idx) {
+  const {input,acList} = activeInputs[idx];
+  const val = input.value.trim().toLowerCase();
+  checkConfirmBtn();
+  if (!val) { acList.classList.remove('open'); return; }
+  const typed = activeInputs.filter((_,i)=>i!==idx).map(x=>x.input.value.trim().toLowerCase());
+  const matches = knownPlayers.filter(p=>p.name.toLowerCase().includes(val)&&!typed.includes(p.name.toLowerCase()));
+  if (!matches.length) { acList.classList.remove('open'); return; }
+  acList.innerHTML = matches.map(p=>`
+    <div class="autocomplete-item" onclick="selectPlayer(${idx},'${p.name.replace(/'/g,"\\'")}')">
+      <div class="autocomplete-avatar">${getAvatarEl(p)}</div>${p.name}
+    </div>`).join('');
+  acList.classList.add('open');
+}
+
+function selectPlayer(idx, name) {
+  activeInputs[idx].input.value = name;
+  activeInputs[idx].acList.classList.remove('open');
+  checkConfirmBtn();
+}
+
+function checkConfirmBtn() {
+  document.getElementById('confirm-btn').classList.toggle('visible', activeInputs.every(x=>x.input.value.trim().length>0));
+}
+
+function confirmGame() {
+  const names = activeInputs.map(x=>x.input.value.trim());
+  if (new Set(names.map(n=>n.toLowerCase())).size < 4) { showToast('⚠️ 4 noms différents requis !'); return; }
+  const entry = {
+    id: Date.now(),
+    date: new Date().toLocaleString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    players: activeInputs.map((x,i)=>({name:x.input.value.trim(),rank:RANKS[i].key}))
+  };
+  history.unshift(entry);
+  DB.set('history', history);
+  names.forEach(name=>{
+    if (!knownPlayers.find(p=>p.name.toLowerCase()===name.toLowerCase()))
+      knownPlayers.push({name,avatar:null});
+  });
+  DB.set('players', knownPlayers);
+  closeModal('modal-newgame');
+  showToast('✅ Partie enregistrée !');
+  renderHome();
+}
+
+/* ═══════════════════════════════
+   HOME
+═══════════════════════════════ */
+function renderHome() {
+  // action area
+  const area = document.getElementById('home-action-area');
+  if (isAdmin()) {
+    area.innerHTML = `<button class="nouvelle-partie-btn" onclick="startNewGame()">✨ NOUVELLE PARTIE</button>`;
+  } else {
+    area.innerHTML = `<div class="viewer-lock-msg"><div class="lock-icon">🔒</div><div>Mode visiteur — <a onclick="openAuthModal()">Connectez-vous</a> pour ajouter une partie.</div></div>`;
+  }
+  // last game
+  const lgSection = document.getElementById('last-game-section');
+  if (history.length) {
+    lgSection.style.display = 'block';
+    const g = history[0];
+    document.getElementById('last-game-date').textContent = g.date;
+    document.getElementById('last-game-players').innerHTML = g.players.map(p=>{
+      const r = RANKS.find(r=>r.key===p.rank);
+      const pl = getPlayerObj(p.name);
+      return `<div class="last-game-row">
+        <div class="lg-rank">${r.emoji}</div>
+        <div class="lg-avatar">${getAvatarEl(pl)}</div>
+        <div class="lg-name">${p.name}</div>
+        <div class="lg-pos-tag pos-${r.key}">${r.label}</div>
+      </div>`;
+    }).join('');
+  } else {
+    lgSection.style.display = 'none';
+  }
+  // quick ranking
+  const qr = document.getElementById('quick-ranking');
+  const ranked = computeRanking().slice(0,4);
+  if (!ranked.length) {
+    qr.innerHTML = `<div class="empty-state"><div class="empty-icon">🫏</div><div class="empty-text">Commencez une partie !</div></div>`;
+    return;
+  }
+  qr.innerHTML = `<div class="ranking-list">${ranked.map((p,i)=>rankingCardHTML(p,i)).join('')}</div>`;
+}
+
+/* ═══════════════════════════════
+   STATS
+═══════════════════════════════ */
+function renderStats() {
+  const ranked = computeRanking();
+  const el = document.getElementById('stats-ranking');
+  if (!ranked.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">Aucune partie jouée</div></div>`;
+    return;
+  }
+  el.innerHTML = ranked.map((p,i)=>rankingCardHTML(p,i)).join('');
+}
+
+function rankingCardHTML(p,i) {
+  const pl = getPlayerObj(p.name);
+  return `<div class="ranking-card ${i<3?'rank-'+(i+1):''}">
+    <div class="ranking-num">${i+1}</div>
+    <div class="ranking-avatar">${getAvatarEl(pl)}</div>
+    <div class="ranking-info">
+      <div class="ranking-name clickable-name" onclick="openPlayerDetail('${p.name.replace(/'/g,"\\'")}')">${p.name}</div>
+      <div class="ranking-medals">
+        ${p.gold   ?`<div class="medal-chip gold">🥇 ${p.gold}</div>`:''}
+        ${p.silver ?`<div class="medal-chip silver">🥈 ${p.silver}</div>`:''}
+        ${p.bronze ?`<div class="medal-chip bronze">🥉 ${p.bronze}</div>`:''}
+        ${p.donkey ?`<div class="medal-chip donkey">🫏 ${p.donkey}</div>`:''}
+      </div>
+      <div class="ranking-games">${p.games} partie${p.games>1?'s':''}</div>
+    </div>
+    <div class="ranking-score">${p.score}</div>
+  </div>`;
+}
+
+/* ═══════════════════════════════
+   HISTORY
+═══════════════════════════════ */
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (!history.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📜</div><div class="empty-text">Aucun historique</div></div>`;
+    return;
+  }
+  el.innerHTML = history.map((g,gi)=>{
+    const adminActions = isAdmin() ? `
+      <div class="history-actions">
+        <button class="history-act-btn edit-btn" onclick="toggleEditGame(${gi})" title="Modifier">✏️</button>
+        <button class="history-act-btn del-btn" onclick="deleteGame(${gi})" title="Supprimer">🗑</button>
+      </div>` : '';
+    return `<div class="history-card" id="hcard-${gi}">
+      ${adminActions}
+      <div class="history-date">${g.date}</div>
+      ${g.players.map(p=>{
+        const r = RANKS.find(r=>r.key===p.rank);
+        return `<div class="history-row">
+          <div class="history-rank">${r.emoji}</div>
+          <div class="history-name">${p.name}</div>
+          <div class="lg-pos-tag pos-${r.key}">${r.label}</div>
+        </div>`;
+      }).join('')}
+      <div class="history-edit-form" id="hedit-${gi}" style="display:none">
+        ${g.players.map((p,pi)=>{
+          const r = RANKS.find(r=>r.key===p.rank);
+          return `<div class="edit-row">
+            <div class="edit-row-label">${r.emoji}</div>
+            <input class="edit-row-input" id="hei-${gi}-${pi}" value="${p.name}" placeholder="Nom du joueur">
+          </div>`;
+        }).join('')}
+        <button class="edit-save-btn" onclick="saveGameEdit(${gi})">💾 Enregistrer</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleEditGame(gi) {
+  const form = document.getElementById(`hedit-${gi}`);
+  const visible = form.style.display !== 'none';
+  // close all other open forms first
+  document.querySelectorAll('[id^="hedit-"]').forEach(f=>f.style.display='none');
+  form.style.display = visible ? 'none' : 'block';
+  if (!visible) document.getElementById(`hei-${gi}-0`).focus();
+}
+
+function saveGameEdit(gi) {
+  const g = history[gi];
+  const newNames = g.players.map((_,pi) => document.getElementById(`hei-${gi}-${pi}`).value.trim());
+  if (newNames.some(n=>!n)) { showToast('⚠️ Noms vides non autorisés'); return; }
+  if (new Set(newNames.map(n=>n.toLowerCase())).size < 4) { showToast('⚠️ 4 noms différents requis !'); return; }
+  // update history
+  newNames.forEach((name,pi)=>{
+    const oldName = g.players[pi].name;
+    g.players[pi].name = name;
+    // add to known players if new
+    if (!knownPlayers.find(p=>p.name.toLowerCase()===name.toLowerCase()))
+      knownPlayers.push({name,avatar:null});
+  });
+  DB.set('history', history);
+  DB.set('players', knownPlayers);
+  renderHistory();
+  showToast('✅ Partie modifiée !');
+}
+
+function deleteGame(gi) {
+  if (!confirm('Supprimer cette partie ?')) return;
+  history.splice(gi,1);
+  DB.set('history', history);
+  renderHistory();
+  showToast('🗑 Partie supprimée');
+}
+
+/* ═══════════════════════════════
+   PLAYERS
+═══════════════════════════════ */
+function renderPlayers() {
+  const el = document.getElementById('players-grid');
+  const actionArea = document.getElementById('data-action-area');
+  document.getElementById('avatar-hint').style.display = isAdmin() && knownPlayers.length ? 'block' : 'none';
+
+  // Render data action buttons
+  if (actionArea) {
+    let btns = `<div class="data-actions">
+      <button class="data-btn" onclick="exportData()">📤 Exporter</button>
+      <button class="data-btn import-btn" onclick="triggerImport()">📥 Importer</button>
+      ${isAdmin() ? `<button class="data-btn" onclick="openChangePassword()" style="flex:1.2">🔑 Mot de passe</button>` : ''}
+    </div>`;
+    actionArea.innerHTML = btns;
+  }
+
+  if (!knownPlayers.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">Aucun joueur enregistré</div></div>`;
+    return;
+  }
+  const ranked = computeRanking();
+  el.innerHTML = knownPlayers.map((pl,pi)=>{
+    const s = ranked.find(r=>r.name.toLowerCase()===pl.name.toLowerCase()) || {gold:0,silver:0,bronze:0,donkey:0,games:0,score:0};
+    const goldPct   = s.games ? Math.round(s.gold/s.games*100)   : 0;
+    const donkeyPct = s.games ? Math.round(s.donkey/s.games*100) : 0;
+    const avatarClick = isAdmin() ? `onclick="triggerAvatarUpload(${pi})"` : '';
+    const avatarOverlay = isAdmin() ? `<div class="edit-avatar-overlay">📷</div>` : '';
+    const fileInput = isAdmin() ? `<input type="file" class="file-input-hidden" id="file-${pi}" accept="image/*" onchange="handleAvatarChange(${pi},this)">` : '';
+    const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="deletePlayer(${pi})">✕</button>` : '';
+
+    // Lost-to: who was 3rd when this player was donkey
+    const lostToMap = {};
+    history.forEach(g => {
+      const donkeyP = g.players.find(p=>p.rank==='donkey'&&p.name.toLowerCase()===pl.name.toLowerCase());
+      const bronzeP = g.players.find(p=>p.rank==='bronze');
+      if (donkeyP && bronzeP) {
+        const k = bronzeP.name;
+        lostToMap[k] = (lostToMap[k]||0) + 1;
+      }
+    });
+    const lostToEntries = Object.entries(lostToMap).sort((a,b)=>b[1]-a[1]);
+    const lostToHTML = lostToEntries.length ? `<div class="lost-to-tag">🫏 <span>Perdu contre :</span> ${lostToEntries.slice(0,2).map(([name,cnt])=>`<b>${name}</b>${cnt>1?` ×${cnt}`:''}`).join(', ')}</div>` : '';
+
+    return `<div class="player-edit-card">
+      <div class="edit-avatar-wrap" ${avatarClick}>
+        <div class="edit-avatar">${getAvatarEl(pl)}</div>
+        ${avatarOverlay}${fileInput}
+      </div>
+      <div class="edit-info" style="flex:1;min-width:0">
+        <div class="edit-name clickable-name" onclick="openPlayerDetail('${pl.name.replace(/'/g,"\\'")}')">${pl.name}</div>
+        <div class="edit-stats-row">
+          ${s.gold   ?`<div class="medal-chip gold">🥇 ${s.gold}</div>`:''}
+          ${s.silver ?`<div class="medal-chip silver">🥈 ${s.silver}</div>`:''}
+          ${s.bronze ?`<div class="medal-chip bronze">🥉 ${s.bronze}</div>`:''}
+          ${s.donkey ?`<div class="medal-chip donkey">🫏 ${s.donkey}</div>`:''}
+        </div>
+        <div class="ranking-games" style="margin-top:4px">${s.games} partie${s.games!==1?'s':''} · Score: ${s.score}</div>
+        <div class="stat-bars">
+          <div class="stat-bar-row">
+            <div class="stat-bar-label">🥇 Or</div>
+            <div class="stat-bar-track"><div class="stat-bar-fill gold-fill" style="width:${goldPct}%"></div></div>
+            <div class="stat-bar-val" style="color:var(--gold)">${goldPct}%</div>
+          </div>
+          <div class="stat-bar-row">
+            <div class="stat-bar-label">🫏 Âne</div>
+            <div class="stat-bar-track"><div class="stat-bar-fill donkey-fill" style="width:${donkeyPct}%"></div></div>
+            <div class="stat-bar-val" style="color:var(--donkey)">${donkeyPct}%</div>
+          </div>
+        </div>
+        ${lostToHTML}
+      </div>
+      ${delBtn}
+    </div>`;
+  }).join('');
+}
+
+function triggerAvatarUpload(pi) { document.getElementById('file-'+pi).click(); }
+
+function handleAvatarChange(pi, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    knownPlayers[pi].avatar = e.target.result;
+    DB.set('players', knownPlayers);
+    renderPlayers();
+    showToast('📷 Photo mise à jour !');
+  };
+  reader.readAsDataURL(file);
+}
+
+function deletePlayer(pi) {
+  if (!confirm(`Supprimer "${knownPlayers[pi].name}" ?`)) return;
+  knownPlayers.splice(pi,1);
+  DB.set('players', knownPlayers);
+  renderPlayers();
+  showToast('✕ Joueur supprimé');
+}
+
+/* ═══════════════════════════════
+   PLAYER DETAIL MODAL
+═══════════════════════════════ */
+function openPlayerDetail(name) {
+  const pl = getPlayerObj(name);
+  const ranked = computeRanking();
+  const s = ranked.find(r=>r.name.toLowerCase()===name.toLowerCase()) || {gold:0,silver:0,bronze:0,donkey:0,games:0,score:0};
+  const rank = ranked.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());
+
+  // Co-players: who has this player played with the most
+  const coMap = {};
+  history.forEach(g=>{
+    const isInGame = g.players.find(p=>p.name.toLowerCase()===name.toLowerCase());
+    if (!isInGame) return;
+    g.players.forEach(p=>{
+      if (p.name.toLowerCase()===name.toLowerCase()) return;
+      coMap[p.name] = (coMap[p.name]||0)+1;
+    });
+  });
+  const coPlayers = Object.entries(coMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Lost-to: bronze when player is donkey
+  const lostToMap = {};
+  history.forEach(g=>{
+    const donkeyP = g.players.find(p=>p.rank==='donkey'&&p.name.toLowerCase()===name.toLowerCase());
+    const bronzeP = g.players.find(p=>p.rank==='bronze');
+    if (donkeyP && bronzeP) lostToMap[bronzeP.name] = (lostToMap[bronzeP.name]||0)+1;
+  });
+  const lostToEntries = Object.entries(lostToMap).sort((a,b)=>b[1]-a[1]);
+
+  // Win rate vs others (times player was gold when specific others were donkey)
+  const bestedMap = {};
+  history.forEach(g=>{
+    const goldP = g.players.find(p=>p.rank==='gold'&&p.name.toLowerCase()===name.toLowerCase());
+    const donkeyP = g.players.find(p=>p.rank==='donkey');
+    if (goldP && donkeyP) bestedMap[donkeyP.name] = (bestedMap[donkeyP.name]||0)+1;
+  });
+
+  const goldPct   = s.games ? Math.round(s.gold/s.games*100)   : 0;
+  const donkeyPct = s.games ? Math.round(s.donkey/s.games*100) : 0;
+  const silverPct = s.games ? Math.round(s.silver/s.games*100) : 0;
+  const bronzePct = s.games ? Math.round(s.bronze/s.games*100) : 0;
+  const rankDisplay = rank>=0 ? `#${rank+1}` : 'N/A';
+
+  const coHTML = coPlayers.length ? coPlayers.map(([n,cnt])=>{
+    const coPl = getPlayerObj(n);
+    return `<div class="played-with-card">
+      <div class="lg-avatar" style="width:30px;height:30px;flex-shrink:0">${getAvatarEl(coPl)}</div>
+      <div class="played-with-name">${n}</div>
+      <div class="played-with-count">${cnt} partie${cnt>1?'s':''}</div>
+    </div>`;
+  }).join('') : `<div style="font-size:.8rem;color:var(--text-dim);padding:8px 0">Aucune donnée</div>`;
+
+  const lostToHTML = lostToEntries.length ? lostToEntries.map(([n,cnt])=>{
+    const coPl = getPlayerObj(n);
+    return `<div class="nemesis-card">
+      <div class="lg-avatar" style="width:30px;height:30px;flex-shrink:0">${getAvatarEl(coPl)}</div>
+      <div class="nemesis-name">${n}</div>
+      <div class="nemesis-chip">🫏 ×${cnt}</div>
+    </div>`;
+  }).join('') : `<div style="font-size:.8rem;color:var(--text-dim);padding:8px 0">Jamais perdu contre quelqu'un comme âne</div>`;
+
+  const content = `
+    <div class="detail-avatar-big">${getAvatarEl(pl)}</div>
+    <div class="detail-name">${name}</div>
+    <div class="detail-score-big">${s.score}</div>
+    <div class="detail-score-label">Points · Classé ${rankDisplay}</div>
+    <div class="detail-medals">
+      ${s.gold   ?`<div class="medal-chip gold">🥇 ${s.gold}</div>`:''}
+      ${s.silver ?`<div class="medal-chip silver">🥈 ${s.silver}</div>`:''}
+      ${s.bronze ?`<div class="medal-chip bronze">🥉 ${s.bronze}</div>`:''}
+      ${s.donkey ?`<div class="medal-chip donkey">🫏 ${s.donkey}</div>`:''}
+    </div>
+    <div class="stat-bars">
+      ${[['🥇','gold',goldPct,'var(--gold)'],['🥈','silver',silverPct,'var(--silver)'],['🥉','bronze',bronzePct,'var(--bronze)'],['🫏','donkey',donkeyPct,'var(--donkey)']].map(([em,cls,pct,col])=>`
+        <div class="stat-bar-row">
+          <div class="stat-bar-label">${em}</div>
+          <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+          <div class="stat-bar-val" style="color:${col}">${pct}%</div>
+        </div>`).join('')}
+    </div>
+    <div class="detail-stat-row" style="margin-top:12px">
+      <div class="detail-stat-label">Parties jouées</div>
+      <div class="detail-stat-val">${s.games}</div>
+    </div>
+    <div class="detail-section">🤝 Joue le plus souvent avec</div>
+    ${coHTML}
+    <div class="detail-section">🫏 Perd contre (comme âne)</div>
+    ${lostToHTML}
+  `;
+
+  document.getElementById('player-detail-content').innerHTML = content;
+  document.getElementById('modal-player-detail').classList.add('open');
+}
+
+/* ═══════════════════════════════
+   HELPERS
+═══════════════════════════════ */
+function getPlayerObj(name) {
+  return knownPlayers.find(p=>p.name.toLowerCase()===name.toLowerCase())||{name,avatar:null};
+}
+function getAvatarEl(pl) {
+  if (!pl) return '👤';
+  if (pl.avatar) return `<img src="${pl.avatar}" alt="">`;
+  const parts = pl.name.trim().split(/\s+/);
+  const init  = parts.length>=2 ? parts[0][0]+parts[1][0] : parts[0].substring(0,2);
+  return `<span style="font-size:.75rem;font-weight:900;color:var(--text-dim)">${init.toUpperCase()}</span>`;
+}
+function computeRanking() {
+  const map = {};
+  history.forEach(g=>{
+    g.players.forEach(p=>{
+      const k = p.name.toLowerCase();
+      if (!map[k]) map[k]={name:p.name,gold:0,silver:0,bronze:0,donkey:0,games:0};
+      map[k][p.rank]++;
+      map[k].games++;
+    });
+  });
+  return Object.values(map)
+    .map(p=>({...p,score:p.gold*3+p.silver*2+p.bronze*1-p.donkey*1}))
+    .sort((a,b)=>b.score-a.score||b.gold-a.gold||b.silver-a.silver||b.bronze-a.bronze||a.donkey-b.donkey);
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+/* ═══════════════════════════════
+   PWA
+═══════════════════════════════ */
+const SW_CODE = `
+const CACHE='donkey-v2';
+self.addEventListener('install',()=>self.skipWaiting());
+self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
+self.addEventListener('fetch',e=>{
+  if(e.request.url.startsWith(self.location.origin)){
+    e.respondWith(caches.open(CACHE).then(c=>c.match(e.request).then(r=>{
+      const n=fetch(e.request).then(res=>{c.put(e.request,res.clone());return res;});
+      return r||n;
+    })));
+  }
+});`;
+if ('serviceWorker' in navigator) {
+  const blob = new Blob([SW_CODE],{type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob),{scope:'./'}).catch(()=>{});
+}
+let deferredPrompt=null;
+const installBanner=document.getElementById('install-banner');
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
+  if (!localStorage.getItem('pwa-dismissed'))
+    setTimeout(()=>installBanner.classList.add('visible'),2000);
+});
+document.getElementById('pwa-install-btn').addEventListener('click',async()=>{
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const {outcome}=await deferredPrompt.userChoice;
+  deferredPrompt=null; installBanner.classList.remove('visible');
+  if(outcome==='accepted') showToast('✅ Application installée !');
+});
+window.addEventListener('appinstalled',()=>{installBanner.classList.remove('visible');showToast('🎉 Installée !');});
+function dismissInstall(){installBanner.classList.remove('visible');localStorage.setItem('pwa-dismissed','1');}
+
+/* ═══════════════════════════════
+   INIT
+═══════════════════════════════ */
+updateAuthUI();
+renderHome();
+</script>
+</body>
+</html>
