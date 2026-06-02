@@ -1,6 +1,50 @@
 {
-  "players": [],
-  "history": [],
+  "players": [
+    {
+      "name": "Rabi3",
+      "avatar": null
+    },
+    {
+      "name": "Safouane",
+      "avatar": null
+    },
+    {
+      "name": "Ali",
+      "avatar": null
+    },
+    {
+      "name": "Hicham",
+      "avatar": null
+    }
+  ],
+  "history": [
+    {
+      "id": 1780392815182,
+      "date": "02 juin 2026, 10:33",
+      "players": [
+        {
+          "name": "Rabi3",
+          "rank": "gold",
+          "color": "red"
+        },
+        {
+          "name": "Safouane",
+          "rank": "silver",
+          "color": "blue"
+        },
+        {
+          "name": "Ali",
+          "rank": "bronze",
+          "color": "green"
+        },
+        {
+          "name": "Hicham",
+          "rank": "donkey",
+          "color": "yellow"
+        }
+      ]
+    }
+  ],
   "adminCreds": {
     "username": "elrecham",
     "passwordHash": "1qjxyw2"
