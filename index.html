@@ -202,6 +202,26 @@
         .empty-icon{font-size:3rem;margin-bottom:12px;}
         .empty-text{font-weight:700;font-size:.95rem;}
 
+
+        /* COLOR PICKER MODAL */
+        .color-picker-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+        .color-picker-option{padding:14px 10px;border-radius:var(--radius-sm);border:2px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:800;font-size:.9rem;transition:all .2s;}
+        .color-picker-option:hover{border-color:var(--accent);background:rgba(124,92,252,.12);}
+        .color-picker-option.selected{border-color:var(--accent2);background:rgba(0,229,255,.1);}
+        .color-picker-dot{width:22px;height:22px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.2);}
+        .color-trigger{display:flex;align-items:center;gap:8px;margin-top:6px;padding:7px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:700;color:var(--text-dim);transition:border-color .2s;}
+        .color-trigger:hover{border-color:var(--accent);}
+        .color-trigger.has-color{color:var(--text);}
+
+        /* MERGE PLAYER */
+        .merge-btn{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;font-size:.75rem;font-weight:700;transition:all .2s;flex-shrink:0;align-self:flex-start;margin-left:4px;}
+        .merge-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+        .merge-select-wrap{margin-top:12px;}
+        .merge-player-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:220px;overflow-y:auto;}
+        .merge-player-item{padding:10px 14px;border-radius:var(--radius-sm);border:2px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:800;transition:all .2s;}
+        .merge-player-item:hover{border-color:var(--accent2);}
+        .merge-player-item.selected{border-color:var(--accent2);background:rgba(0,229,255,.1);}
+        .merge-info{font-size:.78rem;color:var(--text-dim);font-weight:700;margin-top:8px;line-height:1.5;}
         ::-webkit-scrollbar{width:4px;}
         ::-webkit-scrollbar-track{background:transparent;}
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
@@ -410,76 +430,97 @@
     </div>
 </div>
 
+
+<!-- MERGE PLAYER MODAL -->
+<div class="modal-overlay" id="modal-merge">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal('modal-merge')">✕</button>
+        <div class="modal-title">🔀 Fusionner les joueurs</div>
+        <div id="merge-modal-content"></div>
+    </div>
+</div>
+
+<!-- COLOR PICKER MODAL -->
+<div class="modal-overlay" id="modal-color-picker">
+    <div class="modal-box" style="max-width:340px">
+        <button class="modal-close" onclick="closeModal('modal-color-picker')">✕</button>
+        <div class="modal-title" id="color-picker-title">Choisir une couleur</div>
+        <div class="color-picker-grid" id="color-picker-grid"></div>
+        <button class="confirm-btn visible" style="margin-top:16px;display:block" onclick="confirmColorPick()">✅ Confirmer</button>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="handleImportFile(this)">
 
 <script>
     /* ═══════════════════════════════
-       GITHUB SYNC
+       SUPABASE SYNC
     ═══════════════════════════════ */
-    // Token is split + reversed to avoid plain-text scanning
-    const _t = ['gh','p_','vU','9r','VB','bo','Rz','wy','lx','Bj','qI','C4','MZ','xv','cq','oy','3u','4A','V5','0X'];
-    const GH_TOKEN = _t.join('');
-    const GH_OWNER = 'la7mir';
-    const GH_REPO  = 'la7mir.github.io';
-    const GH_FILE  = 'data.json';
-    const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+    const SB_URL   = 'https://osclxabhsikcvqhxpavo.supabase.co';
+    const SB_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zY2x4YWJoc2lrY3ZxaHhwYXZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMjg2NDMsImV4cCI6MjA5NTkwNDY0M30.mnIfBIXxcd2bLuSOlCeDkNSqX_AHHOpno8fs60ulDaE';
+    const SB_HEADERS = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
+    // Single-row store: we keep one record with id=1 that holds everything
+    const SB_TABLE = `${SB_URL}/rest/v1/gamedata`;
 
-    let _ghSha = null;       // latest file SHA (needed for updates)
     let _syncPending = false;
     let _syncTimer = null;
 
-    async function ghLoad() {
+    async function sbLoad() {
       try {
-        const r = await fetch(GH_API, {
-          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json' }
-        });
+        const r = await fetch(`${SB_TABLE}?id=eq.1&select=*`, { headers: SB_HEADERS });
         if (!r.ok) throw new Error('load failed');
-        const j = await r.json();
-        _ghSha = j.sha;
-        const data = JSON.parse(atob(j.content.replace(/\n/g,'')));
-        // Restore admin creds from GitHub into localStorage
-        if (data.adminCreds) {
-          localStorage.setItem('admin-creds', JSON.stringify(data.adminCreds));
-        }
-        return data;
+        const rows = await r.json();
+        if (!rows || !rows.length) return null;
+        const data = rows[0];
+        if (data.admin_creds) localStorage.setItem('admin-creds', JSON.stringify(data.admin_creds));
+        return { players: data.players || [], history: data.history || [] };
       } catch(e) {
-        console.warn('GitHub load failed, using localStorage', e);
+        console.warn('Supabase load failed, using localStorage', e);
         return null;
       }
     }
 
-    async function ghSave() {
+    async function sbSave() {
       if (_syncPending) return;
       _syncPending = true;
       const ind = document.getElementById('sync-indicator');
       if (ind) { ind.textContent = '☁️ Sync…'; ind.style.color = 'var(--text-dim)'; }
       try {
-        const adminCreds = DB.get('admin-creds', null);
-        const data = { players: knownPlayers, history, adminCreds };
-        const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-        const body = { message: `update data ${new Date().toISOString()}`, content, sha: _ghSha };
-        const r = await fetch(GH_API, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
+        const admin_creds = DB.get('admin-creds', null);
+        const payload = { id: 1, players: knownPlayers, history, admin_creds };
+        const r = await fetch(`${SB_TABLE}?id=eq.1`, {
+          method: 'PATCH',
+          headers: SB_HEADERS,
+          body: JSON.stringify(payload)
         });
-        if (!r.ok) throw new Error('save failed');
-        const j = await r.json();
-        _ghSha = j.content.sha;
+        // If no row exists yet, insert
+        if (r.status === 404 || (await r.json())?.length === 0) {
+          await fetch(SB_TABLE, { method: 'POST', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' }, body: JSON.stringify(payload) });
+        }
         if (ind) { ind.textContent = '✅ Synced'; ind.style.color = 'var(--green)'; setTimeout(()=>{ if(ind) ind.textContent=''; },2000); }
       } catch(e) {
-        console.warn('GitHub save failed', e);
+        console.warn('Supabase save failed', e);
         if (ind) { ind.textContent = '⚠️ Sync failed'; ind.style.color = 'var(--donkey)'; setTimeout(()=>{ if(ind) ind.textContent=''; },3000); }
       }
       _syncPending = false;
     }
 
+    async function sbSaveCreds(creds) {
+      try {
+        await fetch(`${SB_TABLE}?id=eq.1`, {
+          method: 'PATCH',
+          headers: SB_HEADERS,
+          body: JSON.stringify({ id: 1, admin_creds: creds })
+        });
+      } catch(e) { console.warn('creds sync failed', e); }
+    }
+
     // Debounced save — batches rapid consecutive writes
     function scheduleSync() {
       clearTimeout(_syncTimer);
-      _syncTimer = setTimeout(ghSave, 800);
+      _syncTimer = setTimeout(sbSave, 800);
     }
 
     /* ═══════════════════════════════
@@ -513,7 +554,7 @@
     ═══════════════════════════════ */
     // Credentials stored as {username, passwordHash}
     // Default: no admin set yet → first login creates it
-    let sessionAdmin = false; // true when logged in this session
+    let sessionAdmin = localStorage.getItem('admin-session') === '1'; // persisted across app restarts
 
     function hashStr(s) {
       // Simple djb2 hash (no crypto needed for local app)
@@ -538,33 +579,15 @@
     function setupAdmin(username, password) {
       const creds = { username: username.trim(), passwordHash: hashStr(password) };
       DB.set('admin-creds', creds);
-      // Also save to GitHub immediately (don't wait for debounce)
-      ghSaveCreds(creds);
+      // Also save to Supabase immediately (don't wait for debounce)
+      sbSaveCreds(creds);
     }
 
-    async function ghSaveCreds(creds) {
-      // Patch admin creds into data.json directly
-      try {
-        const r = await fetch(GH_API, {
-          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json' }
-        });
-        const j = await r.json();
-        _ghSha = j.sha;
-        const current = JSON.parse(atob(j.content.replace(/\n/g,'')));
-        current.adminCreds = creds;
-        const content = btoa(unescape(encodeURIComponent(JSON.stringify(current, null, 2))));
-        const res = await fetch(GH_API, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'update admin creds', content, sha: _ghSha })
-        });
-        const rj = await res.json();
-        _ghSha = rj.content.sha;
-      } catch(e) { console.warn('creds sync failed', e); }
-    }
+
 
     function logout() {
       sessionAdmin = false;
+      localStorage.removeItem('admin-session');
       updateAuthUI();
       showToast('👋 Déconnecté');
     }
@@ -643,6 +666,7 @@
       const p = document.getElementById('login-pass').value;
       if (tryLogin(u, p)) {
         sessionAdmin = true;
+        localStorage.setItem('admin-session', '1');
         closeModal('modal-auth');
         updateAuthUI();
         showToast('✅ Connecté en tant qu\'admin !');
@@ -663,6 +687,7 @@
       if (p !== p2) { err.textContent='Les mots de passe ne correspondent pas'; err.classList.add('visible'); return; }
       setupAdmin(u, p);
       sessionAdmin = true;
+      localStorage.setItem('admin-session', '1');
       closeModal('modal-auth');
       updateAuthUI();
       showToast('🎉 Compte admin créé !');
@@ -715,7 +740,7 @@
       }
       const newCreds = { username: creds.username, passwordHash: hashStr(newPass) };
       DB.set('admin-creds', newCreds);
-      ghSaveCreds(newCreds);
+      sbSaveCreds(newCreds);
       closeModal('modal-chpass');
       showToast('🔑 Mot de passe changé !');
     }
@@ -830,6 +855,80 @@
       document.getElementById('modal-newgame').classList.add('open');
     }
 
+    /* ═══════════════════════════════
+       COLOR PICKER MODAL
+    ═══════════════════════════════ */
+    let _colorPickerIdx = -1;
+    let _colorPickerTemp = '';
+
+    function openColorPicker(i) {
+      _colorPickerIdx = i;
+      _colorPickerTemp = activeInputs[i]?.colorVal || '';
+      const taken = RANKS.map((_,j) => activeInputs[j]?.colorVal || '').filter((v,j)=>j!==i&&v!=='');
+      const rank = RANKS[i];
+      document.getElementById('color-picker-title').textContent = `${rank.emoji} ${rank.label} — Couleur`;
+      const grid = document.getElementById('color-picker-grid');
+      grid.innerHTML = COLORS.map(c => {
+        const isTaken = taken.includes(c.key);
+        const isSelected = _colorPickerTemp === c.key;
+        const dotColors = {blue:'#3b82f6',red:'#ef4444',green:'#22c55e',yellow:'#eab308'};
+        return `<div class="color-picker-option${isSelected?' selected':''}${isTaken?' disabled-opt':''}"
+          style="${isTaken?'opacity:.35;pointer-events:none':''}"
+          onclick="selectColorOption('${c.key}')">
+          <div class="color-picker-dot" style="background:${dotColors[c.key]}"></div>
+          ${c.emoji} ${c.label}
+        </div>`;
+      }).join('');
+      document.getElementById('modal-color-picker').classList.add('open');
+    }
+
+    function selectColorOption(key) {
+      _colorPickerTemp = key;
+      document.querySelectorAll('.color-picker-option').forEach(el => el.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+    }
+
+    function confirmColorPick() {
+      const i = _colorPickerIdx;
+      if (i < 0) return;
+      if (!_colorPickerTemp) { showToast('⚠️ Choisissez une couleur'); return; }
+      activeInputs[i].colorVal = _colorPickerTemp;
+      updateColorTrigger(i);
+      closeModal('modal-color-picker');
+      checkConfirmBtn();
+    }
+
+    function updateColorTrigger(i) {
+      const trigger = document.getElementById(`ctrigger-${i}`);
+      const dot = document.getElementById(`ctriggerdot-${i}`);
+      const val = activeInputs[i]?.colorVal || '';
+      const dotColors = {blue:'#3b82f6',red:'#ef4444',green:'#22c55e',yellow:'#eab308'};
+      const c = COLORS.find(c=>c.key===val);
+      if (c) {
+        trigger.classList.add('has-color');
+        trigger.querySelector('.ctrigger-label').textContent = `${c.emoji} ${c.label}`;
+        dot.style.background = dotColors[val];
+        dot.style.display = 'block';
+      } else {
+        trigger.classList.remove('has-color');
+        trigger.querySelector('.ctrigger-label').textContent = '— Couleur —';
+        dot.style.display = 'none';
+      }
+    }
+
+    /* ═══════════════════════════════
+       NAME NORMALIZATION
+    ═══════════════════════════════ */
+    function normalizeName(raw) {
+      const trimmed = raw.trim();
+      if (!trimmed) return trimmed;
+      // Check if a known player matches case-insensitively
+      const match = knownPlayers.find(p => p.name.toLowerCase() === trimmed.toLowerCase());
+      if (match) return match.name;
+      // Otherwise capitalize first letter of each word
+      return trimmed.replace(/\w/g, c => c.toUpperCase());
+    }
+
     function buildInputs() {
       activeInputs = [];
       const container = document.getElementById('player-inputs-container');
@@ -844,63 +943,26 @@
             <div class="player-rank-label">${rank.label}</div>
             <input class="player-input" id="pi-${i}" type="text" placeholder="Nom du joueur…" autocomplete="off">
             <div class="autocomplete-list" id="ac-${i}"></div>
-            <div class="color-select-wrap">
-              <div class="color-dot" id="cdot-${i}"></div>
-              <select class="color-select" id="pc-${i}" onchange="onColorChange(${i})">
-                <option value="">— Couleur —</option>
-                ${COLORS.map(c=>`<option value="${c.key}">${c.emoji} ${c.label}</option>`).join('')}
-              </select>
+            <div id="ctrigger-${i}" class="color-trigger" onclick="openColorPicker(${i})">
+              <div class="color-picker-dot ctriggerdot" id="ctriggerdot-${i}" style="display:none;width:14px;height:14px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.2)"></div>
+              <span class="ctrigger-label">— Couleur —</span>
+              <span style="margin-left:auto;font-size:.75rem;opacity:.5">▼</span>
             </div>
           </div>`;
         container.appendChild(wrap);
         const input = wrap.querySelector(`#pi-${i}`);
         const acList = wrap.querySelector(`#ac-${i}`);
-        activeInputs.push({input, acList, rank});
+        activeInputs.push({input, acList, rank, colorVal:''});
         input.addEventListener('input', ()=>handleAutoComplete(i));
         input.addEventListener('keydown', e=>{ if(e.key==='Escape') acList.classList.remove('open'); });
+        input.addEventListener('blur', ()=>{ input.value = normalizeName(input.value); checkConfirmBtn(); });
         input.addEventListener('change', checkConfirmBtn);
       });
     }
 
-    function onColorChange(i) {
-      // Update dot for this row
-      const sel = document.getElementById(`pc-${i}`);
-      const dot = document.getElementById(`cdot-${i}`);
-      dot.className = 'color-dot' + (sel.value ? ` ${sel.value}` : '');
-      // Rebuild all OTHER dropdowns excluding taken colors
-      syncColorDropdowns(i);
-      checkConfirmBtn();
-    }
-
-    function syncColorDropdowns(changedIdx) {
-      // Collect all currently selected colors
-      const selected = RANKS.map((_,i) => document.getElementById(`pc-${i}`)?.value || '');
-      RANKS.forEach((_, i) => {
-        if (i === changedIdx) return; // don't touch the one just changed
-        const sel = document.getElementById(`pc-${i}`);
-        if (!sel) return;
-        const currentVal = sel.value;
-        // Rebuild options: show colors not taken by OTHER rows
-        const takenByOthers = selected.filter((v, idx) => idx !== i && v !== '');
-        sel.innerHTML = `<option value="">— Couleur —</option>` +
-          COLORS.map(c => {
-            const disabled = takenByOthers.includes(c.key);
-            return `<option value="${c.key}" ${disabled ? 'disabled style="opacity:.35"' : ''} ${currentVal === c.key ? 'selected' : ''}>${c.emoji} ${c.label}</option>`;
-          }).join('');
-        // If previously selected color is now taken, clear it
-        if (currentVal && takenByOthers.includes(currentVal)) {
-          sel.value = '';
-          const dot = document.getElementById(`cdot-${i}`);
-          if (dot) dot.className = 'color-dot';
-        }
-      });
-    }
-
-    function updateColorDot(i) {
-      const sel = document.getElementById(`pc-${i}`);
-      const dot = document.getElementById(`cdot-${i}`);
-      dot.className = 'color-dot' + (sel.value ? ` ${sel.value}` : '');
-    }
+    function onColorChange(i) { /* legacy stub, no-op */ }
+    function syncColorDropdowns() { /* replaced by modal */ }
+    function updateColorDot(i) { /* replaced by modal */ }
 
     function handleAutoComplete(idx) {
       const {input,acList} = activeInputs[idx];
@@ -923,15 +985,33 @@
       checkConfirmBtn();
     }
 
+    // Also handle Enter key in input: close autocomplete and normalize
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && document.getElementById('modal-newgame')?.classList.contains('open')) {
+        activeInputs.forEach(ai => {
+          if (document.activeElement === ai.input) {
+            // Pick first autocomplete match if list is open
+            const firstItem = ai.acList.querySelector('.autocomplete-item');
+            if (firstItem && ai.acList.classList.contains('open')) {
+              firstItem.click();
+            } else {
+              ai.input.value = normalizeName(ai.input.value);
+              ai.acList.classList.remove('open');
+            }
+          }
+        });
+      }
+    }, true);
+
     function checkConfirmBtn() {
       const namesOk = activeInputs.every(x=>x.input.value.trim().length>0);
-      const colorsOk = RANKS.every((_,i)=>document.getElementById(`pc-${i}`)?.value !== '');
+      const colorsOk = activeInputs.every(x=>x.colorVal && x.colorVal !== '');
       document.getElementById('confirm-btn').classList.toggle('visible', namesOk && colorsOk);
     }
 
     function confirmGame() {
-      const names = activeInputs.map(x=>x.input.value.trim());
-      const colors = activeInputs.map((_,i)=>document.getElementById(`pc-${i}`).value);
+      const names = activeInputs.map(x=>normalizeName(x.input.value));
+      const colors = activeInputs.map(x=>x.colorVal);
       if (new Set(names.map(n=>n.toLowerCase())).size < 4) { showToast('⚠️ 4 noms différents requis !'); return; }
       if (new Set(colors).size < 4) { showToast('⚠️ 4 couleurs différentes requises !'); return; }
       const entry = {
@@ -1120,7 +1200,7 @@
 
     function saveGameEdit(gi) {
       const g = history[gi];
-      const newNames = g.players.map((_,pi) => document.getElementById(`hei-${gi}-${pi}`).value.trim());
+      const newNames = g.players.map((_,pi) => normalizeName(document.getElementById(`hei-${gi}-${pi}`).value));
       if (newNames.some(n=>!n)) { showToast('⚠️ Noms vides non autorisés'); return; }
       if (new Set(newNames.map(n=>n.toLowerCase())).size < 4) { showToast('⚠️ 4 noms différents requis !'); return; }
       // update history
@@ -1181,7 +1261,7 @@
         const avatarClick = isAdmin() ? `onclick="triggerAvatarUpload(${pi})"` : '';
         const avatarOverlay = isAdmin() ? `<div class="edit-avatar-overlay">📷</div>` : '';
         const fileInput = isAdmin() ? `<input type="file" class="file-input-hidden" id="file-${pi}" accept="image/*" onchange="handleAvatarChange(${pi},this)">` : '';
-        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="deletePlayer(${pi})">✕</button>` : '';
+        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
 
         // Lost-to: who was 3rd when this player was donkey
         const lostToMap = {};
@@ -1254,6 +1334,78 @@
           DB.set('players', knownPlayers);
           renderPlayers();
           showToast('✕ Joueur supprimé');
+        }
+      });
+    }
+
+    /* ═══════════════════════════════
+       MERGE PLAYERS
+    ═══════════════════════════════ */
+    let _mergeSourceIdx = -1;
+
+    function openMergeModal(pi) {
+      _mergeSourceIdx = pi;
+      const src = knownPlayers[pi];
+      const area = document.getElementById('merge-modal-content');
+      const others = knownPlayers.filter((_,i)=>i!==pi);
+      if (!others.length) {
+        area.innerHTML = `<div style="color:var(--text-dim);font-size:.85rem;font-weight:700;text-align:center;padding:20px 0">Pas d'autre joueur disponible à fusionner.</div>`;
+        document.getElementById('modal-merge').classList.add('open');
+        return;
+      }
+      area.innerHTML = `
+        <div style="font-size:.85rem;font-weight:700;margin-bottom:6px">Fusionner <b style="color:var(--accent)">${src.name}</b> avec :</div>
+        <div class="merge-info">Toutes les parties de l'un seront attribuées à l'autre. Le doublon sera supprimé.</div>
+        <div class="merge-player-list" id="merge-player-list">
+          ${others.map((p,j)=>{
+            const realIdx = knownPlayers.indexOf(p);
+            return `<div class="merge-player-item" id="mitem-${realIdx}" onclick="selectMergeTarget(${realIdx})">
+              <div class="edit-avatar" style="width:36px;height:36px;font-size:.9rem;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${getAvatarEl(p)}</div>
+              <div style="font-weight:900">${p.name}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <button class="auth-btn" style="margin-top:16px;display:none" id="merge-confirm-btn" onclick="confirmMerge()">🔀 Fusionner</button>
+      `;
+      document.getElementById('modal-merge').classList.add('open');
+    }
+
+    let _mergeTargetIdx = -1;
+    function selectMergeTarget(idx) {
+      _mergeTargetIdx = idx;
+      document.querySelectorAll('.merge-player-item').forEach(el=>el.classList.remove('selected'));
+      const item = document.getElementById(`mitem-${idx}`);
+      if (item) item.classList.add('selected');
+      document.getElementById('merge-confirm-btn').style.display = 'block';
+    }
+
+    function confirmMerge() {
+      if (_mergeSourceIdx < 0 || _mergeTargetIdx < 0) return;
+      const src = knownPlayers[_mergeSourceIdx];
+      const tgt = knownPlayers[_mergeTargetIdx];
+      if (!src || !tgt) return;
+      showConfirm({
+        icon: '🔀',
+        title: 'Fusionner les joueurs ?',
+        message: `Toutes les parties de "${src.name}" seront redirigées vers "${tgt.name}". "${src.name}" sera supprimé.`,
+        okLabel: 'Fusionner',
+        okColor: 'var(--accent2)',
+        onOk: () => {
+          // Rename all history entries
+          history.forEach(g => {
+            g.players.forEach(p => {
+              if (p.name.toLowerCase() === src.name.toLowerCase()) p.name = tgt.name;
+            });
+          });
+          // Keep target's avatar if it has one, otherwise use source's
+          if (!tgt.avatar && src.avatar) tgt.avatar = src.avatar;
+          // Remove source
+          knownPlayers.splice(_mergeSourceIdx, 1);
+          DB.set('players', knownPlayers);
+          DB.set('history', history);
+          closeModal('modal-merge');
+          renderPlayers();
+          showToast(`✅ "${src.name}" fusionné avec "${tgt.name}"`);
         }
       });
     }
@@ -1456,22 +1608,19 @@
        INIT
     ═══════════════════════════════ */
     updateAuthUI();
-    renderHome(); // render immediately from localStorage while GitHub loads
+    renderHome(); // render immediately from localStorage while Supabase loads
 
     (async () => {
       const ind = document.getElementById('sync-indicator');
       if (ind) { ind.textContent = '☁️ Chargement…'; ind.style.color = 'var(--text-dim)'; }
-      const remote = await ghLoad();
+      const remote = await sbLoad();
       if (remote) {
-        // Merge: remote is source of truth, but keep localStorage admin creds
         knownPlayers = remote.players || [];
         history      = remote.history  || [];
-        // Mirror to localStorage
         localStorage.setItem('players', JSON.stringify(knownPlayers));
         localStorage.setItem('history',  JSON.stringify(history));
         if (ind) { ind.textContent = '✅ Synced'; ind.style.color = 'var(--green)'; setTimeout(()=>{ if(ind) ind.textContent=''; },2000); }
         renderHome();
-        // Re-render active page if not home
         const activePage = document.querySelector('.page.active');
         if (activePage && activePage.id === 'page-stats')   renderStats();
         if (activePage && activePage.id === 'page-history') renderHistory();
