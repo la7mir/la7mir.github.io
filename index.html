@@ -446,7 +446,6 @@
         <button class="modal-close" onclick="closeModal('modal-color-picker')">✕</button>
         <div class="modal-title" id="color-picker-title">Choisir une couleur</div>
         <div class="color-picker-grid" id="color-picker-grid"></div>
-        <button class="confirm-btn visible" style="margin-top:16px;display:block" onclick="confirmColorPick()">✅ Confirmer</button>
     </div>
 </div>
 
@@ -843,6 +842,7 @@
       document.getElementById(id).classList.remove('open');
     }
     document.querySelectorAll('.modal-overlay').forEach(m => {
+      if (m.id === 'modal-newgame') return; // new game modal only closes via the ✕ button
       m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
     });
 
@@ -884,8 +884,13 @@
 
     function selectColorOption(key) {
       _colorPickerTemp = key;
-      document.querySelectorAll('.color-picker-option').forEach(el => el.classList.remove('selected'));
-      event.currentTarget.classList.add('selected');
+      // Immediately apply and close — no confirm step needed
+      const i = _colorPickerIdx;
+      if (i < 0) return;
+      activeInputs[i].colorVal = key;
+      updateColorTrigger(i);
+      closeModal('modal-color-picker');
+      checkConfirmBtn();
     }
 
     function confirmColorPick() {
@@ -1261,7 +1266,7 @@
         const avatarClick = isAdmin() ? `onclick="triggerAvatarUpload(${pi})"` : '';
         const avatarOverlay = isAdmin() ? `<div class="edit-avatar-overlay">📷</div>` : '';
         const fileInput = isAdmin() ? `<input type="file" class="file-input-hidden" id="file-${pi}" accept="image/*" onchange="handleAvatarChange(${pi},this)">` : '';
-        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
+        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="event.stopPropagation();deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="event.stopPropagation();openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
 
         // Lost-to: who was 3rd when this player was donkey
         const lostToMap = {};
@@ -1276,13 +1281,13 @@
         const lostToEntries = Object.entries(lostToMap).sort((a,b)=>b[1]-a[1]);
         const lostToHTML = lostToEntries.length ? `<div class="lost-to-tag">🫏 <span>Perdu contre :</span> ${lostToEntries.slice(0,2).map(([name,cnt])=>`<b>${name}</b>${cnt>1?` ×${cnt}`:''}`).join(', ')}</div>` : '';
 
-        return `<div class="player-edit-card">
-          <div class="edit-avatar-wrap" ${avatarClick}>
+        return `<div class="player-edit-card" onclick="openPlayerDetail('${pl.name.replace(/'/g,"\\'")}');" style="cursor:pointer">
+          <div class="edit-avatar-wrap" ${avatarClick} onclick="event.stopPropagation()${isAdmin()?`;triggerAvatarUpload(${pi})`:''}">
             <div class="edit-avatar">${getAvatarEl(pl)}</div>
             ${avatarOverlay}${fileInput}
           </div>
           <div class="edit-info" style="flex:1;min-width:0">
-            <div class="edit-name clickable-name" onclick="openPlayerDetail('${pl.name.replace(/'/g,"\\'")}')">${pl.name}</div>
+            <div class="edit-name">${pl.name}</div>
             <div class="edit-stats-row">
               ${s.gold   ?`<div class="medal-chip gold">🥇 ${s.gold}</div>`:''}
               ${s.silver ?`<div class="medal-chip silver">🥈 ${s.silver}</div>`:''}
