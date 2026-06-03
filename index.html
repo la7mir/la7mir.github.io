@@ -289,12 +289,12 @@
         .clickable-name:hover{color:var(--accent2);}
 
         /* PULL TO REFRESH */
-        #ptr-indicator{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:999;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:0 0 20px 20px;background:var(--surface2);border:1px solid var(--border);border-top:none;font-size:.78rem;font-weight:800;color:var(--text-dim);opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
+        #ptr-indicator{position:fixed;top:env(safe-area-inset-top, 44px);left:50%;transform:translateX(-50%);z-index:999;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:0 0 20px 20px;background:var(--surface2);border:1px solid var(--border);border-top:none;font-size:.78rem;font-weight:800;color:var(--text-dim);opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
         #ptr-indicator.visible{opacity:1;}
         #ptr-indicator.releasing{color:var(--green);}
         #ptr-spinner{font-size:1rem;transition:transform .2s;}
 
-        /* CHANGE PASSWORD SECTION */
+                /* CHANGE PASSWORD SECTION */
         .chpass-section{margin-top:18px;border-top:1px solid var(--border);padding-top:18px;}
         .chpass-title{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:12px;}
     </style>
@@ -455,7 +455,6 @@
         <button class="modal-close" onclick="closeModal('modal-color-picker')">✕</button>
         <div class="modal-title" id="color-picker-title">Choisir une couleur</div>
         <div class="color-picker-grid" id="color-picker-grid"></div>
-        <button class="confirm-btn visible" style="margin-top:16px;display:block" onclick="confirmColorPick()">✅ Confirmer</button>
     </div>
 </div>
 
@@ -852,6 +851,7 @@
       document.getElementById(id).classList.remove('open');
     }
     document.querySelectorAll('.modal-overlay').forEach(m => {
+      if (m.id === 'modal-newgame') return; // new game modal only closes via the ✕ button
       m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
     });
 
@@ -893,8 +893,13 @@
 
     function selectColorOption(key) {
       _colorPickerTemp = key;
-      document.querySelectorAll('.color-picker-option').forEach(el => el.classList.remove('selected'));
-      event.currentTarget.classList.add('selected');
+      // Immediately apply and close — no confirm step needed
+      const i = _colorPickerIdx;
+      if (i < 0) return;
+      activeInputs[i].colorVal = key;
+      updateColorTrigger(i);
+      closeModal('modal-color-picker');
+      checkConfirmBtn();
     }
 
     function confirmColorPick() {
@@ -1270,7 +1275,7 @@
         const avatarClick = isAdmin() ? `onclick="triggerAvatarUpload(${pi})"` : '';
         const avatarOverlay = isAdmin() ? `<div class="edit-avatar-overlay">📷</div>` : '';
         const fileInput = isAdmin() ? `<input type="file" class="file-input-hidden" id="file-${pi}" accept="image/*" onchange="handleAvatarChange(${pi},this)">` : '';
-        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
+        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="event.stopPropagation();deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="event.stopPropagation();openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
 
         // Lost-to: who was 3rd when this player was donkey
         const lostToMap = {};
@@ -1617,14 +1622,13 @@
        PULL TO REFRESH
     ═══════════════════════════════ */
     (function() {
-      const THRESHOLD = 72;   // px to pull before releasing triggers reload
+      const THRESHOLD = 72;
       const indicator = document.getElementById('ptr-indicator');
       const spinner   = document.getElementById('ptr-spinner');
       const label     = document.getElementById('ptr-label');
       let startY = 0, pulling = false, triggered = false;
 
       document.addEventListener('touchstart', e => {
-        // Only start if we're scrolled to the very top
         if (window.scrollY === 0) {
           startY = e.touches[0].clientY;
           pulling = true;
@@ -1666,7 +1670,9 @@
       });
     })();
 
-
+    /* ═══════════════════════════════
+       INIT
+    ═══════════════════════════════ */
     updateAuthUI();
     renderHome(); // render immediately from localStorage while Supabase loads
 
