@@ -289,7 +289,7 @@
         .clickable-name:hover{color:var(--accent2);}
 
         /* PULL TO REFRESH */
-        #ptr-indicator{position:fixed;top:env(safe-area-inset-top, 44px);left:50%;transform:translateX(-50%);z-index:999;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:0 0 20px 20px;background:var(--surface2);border:1px solid var(--border);border-top:none;font-size:.78rem;font-weight:800;color:var(--text-dim);opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
+        #ptr-indicator{position:fixed;top:env(safe-area-inset-top, 44px);left:50%;transform:translateX(-50%);z-index:999;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:.78rem;font-weight:800;color:var(--text-dim);opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
         #ptr-indicator.visible{opacity:1;}
         #ptr-indicator.releasing{color:var(--green);}
         #ptr-spinner{font-size:1rem;transition:transform .2s;}
