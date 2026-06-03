@@ -202,7 +202,6 @@
         .empty-icon{font-size:3rem;margin-bottom:12px;}
         .empty-text{font-weight:700;font-size:.95rem;}
 
-
         /* COLOR PICKER MODAL */
         .color-picker-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
         .color-picker-option{padding:14px 10px;border-radius:var(--radius-sm);border:2px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:800;font-size:.9rem;transition:all .2s;}
@@ -294,7 +293,7 @@
         #ptr-indicator.releasing{color:var(--green);}
         #ptr-spinner{font-size:1rem;transition:transform .2s;}
 
-                /* CHANGE PASSWORD SECTION */
+        /* CHANGE PASSWORD SECTION */
         .chpass-section{margin-top:18px;border-top:1px solid var(--border);padding-top:18px;}
         .chpass-title{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:12px;}
     </style>
@@ -439,7 +438,6 @@
     </div>
 </div>
 
-
 <!-- MERGE PLAYER MODAL -->
 <div class="modal-overlay" id="modal-merge">
     <div class="modal-box">
@@ -469,7 +467,6 @@
     const SB_URL   = 'https://osclxabhsikcvqhxpavo.supabase.co';
     const SB_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zY2x4YWJoc2lrY3ZxaHhwYXZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMjg2NDMsImV4cCI6MjA5NTkwNDY0M30.mnIfBIXxcd2bLuSOlCeDkNSqX_AHHOpno8fs60ulDaE';
     const SB_HEADERS = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` };
-    // Single-row store: we keep one record with id=1 that holds everything
     const SB_TABLE = `${SB_URL}/rest/v1/gamedata`;
 
     let _syncPending = false;
@@ -482,7 +479,12 @@
         const rows = await r.json();
         if (!rows || !rows.length) return null;
         const data = rows[0];
-        if (data.admin_creds) localStorage.setItem('admin-creds', JSON.stringify(data.admin_creds));
+        // FIX 3: sync admin_creds both ways — clear local if Supabase has none
+        if (data.admin_creds) {
+          localStorage.setItem('admin-creds', JSON.stringify(data.admin_creds));
+        } else {
+          localStorage.removeItem('admin-creds');
+        }
         return { players: data.players || [], history: data.history || [] };
       } catch(e) {
         console.warn('Supabase load failed, using localStorage', e);
@@ -498,15 +500,26 @@
       try {
         const admin_creds = DB.get('admin-creds', null);
         const payload = { id: 1, players: knownPlayers, history, admin_creds };
+
+        // FIX 1: use Prefer:return=minimal so Supabase returns 204 (no body to parse)
+        // FIX 2: check r.status only — never call r.json() on a PATCH response
         const r = await fetch(`${SB_TABLE}?id=eq.1`, {
           method: 'PATCH',
-          headers: SB_HEADERS,
+          headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
           body: JSON.stringify(payload)
         });
-        // If no row exists yet, insert
-        if (r.status === 404 || (await r.json())?.length === 0) {
-          await fetch(SB_TABLE, { method: 'POST', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' }, body: JSON.stringify(payload) });
+
+        // 404 = row missing, 406 = no match — insert instead
+        if (r.status === 404 || r.status === 406) {
+          await fetch(SB_TABLE, {
+            method: 'POST',
+            headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
+            body: JSON.stringify(payload)
+          });
+        } else if (!r.ok) {
+          throw new Error(`PATCH failed: ${r.status}`);
         }
+
         if (ind) { ind.textContent = '✅ Synced'; ind.style.color = 'var(--green)'; setTimeout(()=>{ if(ind) ind.textContent=''; },2000); }
       } catch(e) {
         console.warn('Supabase save failed', e);
@@ -515,31 +528,39 @@
       _syncPending = false;
     }
 
+    // FIX 5: sbSaveCreds — add POST upsert fallback if row doesn't exist yet
     async function sbSaveCreds(creds) {
       try {
-        await fetch(`${SB_TABLE}?id=eq.1`, {
+        const r = await fetch(`${SB_TABLE}?id=eq.1`, {
           method: 'PATCH',
-          headers: SB_HEADERS,
+          headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
           body: JSON.stringify({ id: 1, admin_creds: creds })
         });
+        if (r.status === 404 || r.status === 406) {
+          await fetch(SB_TABLE, {
+            method: 'POST',
+            headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
+            body: JSON.stringify({ id: 1, players: knownPlayers, history, admin_creds: creds })
+          });
+        }
       } catch(e) { console.warn('creds sync failed', e); }
     }
 
-    // Debounced save — batches rapid consecutive writes
+    // Debounced save
     function scheduleSync() {
       clearTimeout(_syncTimer);
       _syncTimer = setTimeout(sbSave, 800);
     }
 
     /* ═══════════════════════════════
-       DB (localStorage mirror + GitHub)
+       DB (localStorage mirror)
     ═══════════════════════════════ */
     const DB = {
       get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},
       set(k,v){
         localStorage.setItem(k,JSON.stringify(v));
-        // Sync to GitHub whenever players or history change
-        if (k==='players'||k==='history') scheduleSync();
+        // FIX 2 (part 2): admin-creds changes also trigger a full sync
+        if (k==='players' || k==='history' || k==='admin-creds') scheduleSync();
       }
     };
 
@@ -560,12 +581,9 @@
     /* ═══════════════════════════════
        AUTH STATE
     ═══════════════════════════════ */
-    // Credentials stored as {username, passwordHash}
-    // Default: no admin set yet → first login creates it
-    let sessionAdmin = localStorage.getItem('admin-session') === '1'; // persisted across app restarts
+    let sessionAdmin = localStorage.getItem('admin-session') === '1';
 
     function hashStr(s) {
-      // Simple djb2 hash (no crypto needed for local app)
       let h = 5381;
       for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
       return (h >>> 0).toString(36);
@@ -574,7 +592,6 @@
     function isAdmin() { return sessionAdmin; }
 
     function getCredentials() {
-      // Check data.json cache first, fallback to localStorage
       return DB.get('admin-creds', null);
     }
 
@@ -587,11 +604,8 @@
     function setupAdmin(username, password) {
       const creds = { username: username.trim(), passwordHash: hashStr(password) };
       DB.set('admin-creds', creds);
-      // Also save to Supabase immediately (don't wait for debounce)
       sbSaveCreds(creds);
     }
-
-
 
     function logout() {
       sessionAdmin = false;
@@ -631,7 +645,6 @@
       document.getElementById('auth-modal-title').textContent = creds ? 'Connexion Admin' : 'Créer un compte Admin';
 
       if (creds) {
-        // Login form
         area.innerHTML = `
           <div class="auth-field">
             <label class="auth-label">Nom d'utilisateur</label>
@@ -646,7 +659,6 @@
         `;
         setTimeout(() => document.getElementById('login-user').focus(), 100);
       } else {
-        // First-time setup
         area.innerHTML = `
           <div class="auth-setup-hint">Aucun compte admin n'existe encore.<br>Créez-en un pour gérer les parties.</div>
           <div style="height:16px"></div>
@@ -715,7 +727,6 @@
       okBtn.onclick = () => { closeModal('modal-confirm'); onOk(); };
       document.getElementById('modal-confirm').classList.add('open');
     }
-
 
     function openChangePassword() {
       closeModal('modal-auth');
@@ -791,12 +802,10 @@
             message: `Importer ${data.history.length} partie(s) et ${data.players.length} joueur(s) ? Ceci fusionnera avec les données existantes.`,
             okLabel: 'Importer', okColor: 'var(--green)',
             onOk: () => {
-              // Merge players
               data.players.forEach(p => {
                 if (!knownPlayers.find(kp=>kp.name.toLowerCase()===p.name.toLowerCase()))
                   knownPlayers.push(p);
               });
-              // Merge history (avoid duplicates by id)
               const existingIds = new Set(history.map(g=>g.id));
               data.history.forEach(g => { if(!existingIds.has(g.id)) history.unshift(g); });
               history.sort((a,b)=>b.id-a.id);
@@ -813,7 +822,6 @@
       reader.readAsText(file);
     }
 
-
     document.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         if (document.getElementById('modal-auth').classList.contains('open')) {
@@ -828,7 +836,6 @@
     /* ═══════════════════════════════
        STATE
     ═══════════════════════════════ */
-    // Start from localStorage instantly; GitHub sync will update these on load
     let knownPlayers = DB.get('players', []);
     let history      = DB.get('history', []);
     let activeInputs = [];
@@ -851,7 +858,7 @@
       document.getElementById(id).classList.remove('open');
     }
     document.querySelectorAll('.modal-overlay').forEach(m => {
-      if (m.id === 'modal-newgame') return; // new game modal only closes via the ✕ button
+      if (m.id === 'modal-newgame') return;
       m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
     });
 
@@ -871,6 +878,8 @@
     let _colorPickerTemp = '';
 
     function openColorPicker(i) {
+      // FIX 6 (part): close all autocomplete lists when opening color picker
+      closeAllAutocompleteLists();
       _colorPickerIdx = i;
       _colorPickerTemp = activeInputs[i]?.colorVal || '';
       const taken = RANKS.map((_,j) => activeInputs[j]?.colorVal || '').filter((v,j)=>j!==i&&v!=='');
@@ -893,20 +902,9 @@
 
     function selectColorOption(key) {
       _colorPickerTemp = key;
-      // Immediately apply and close — no confirm step needed
       const i = _colorPickerIdx;
       if (i < 0) return;
       activeInputs[i].colorVal = key;
-      updateColorTrigger(i);
-      closeModal('modal-color-picker');
-      checkConfirmBtn();
-    }
-
-    function confirmColorPick() {
-      const i = _colorPickerIdx;
-      if (i < 0) return;
-      if (!_colorPickerTemp) { showToast('⚠️ Choisissez une couleur'); return; }
-      activeInputs[i].colorVal = _colorPickerTemp;
       updateColorTrigger(i);
       closeModal('modal-color-picker');
       checkConfirmBtn();
@@ -936,11 +934,18 @@
     function normalizeName(raw) {
       const trimmed = raw.trim();
       if (!trimmed) return trimmed;
-      // Check if a known player matches case-insensitively
       const match = knownPlayers.find(p => p.name.toLowerCase() === trimmed.toLowerCase());
       if (match) return match.name;
-      // Otherwise capitalize first letter of each word
-      return trimmed.replace(/\w/g, c => c.toUpperCase());
+      return trimmed.replace(/\w/g, c => c.toUpperCase());
+    }
+
+    /* ═══════════════════════════════
+       FIX 6 + 7: AUTOCOMPLETE HELPERS
+    ═══════════════════════════════ */
+
+    // Close every open autocomplete list across all inputs
+    function closeAllAutocompleteLists() {
+      activeInputs.forEach(ai => ai.acList.classList.remove('open'));
     }
 
     function buildInputs() {
@@ -967,44 +972,78 @@
         const input = wrap.querySelector(`#pi-${i}`);
         const acList = wrap.querySelector(`#ac-${i}`);
         activeInputs.push({input, acList, rank, colorVal:''});
-        input.addEventListener('input', ()=>handleAutoComplete(i));
-        input.addEventListener('keydown', e=>{ if(e.key==='Escape') acList.classList.remove('open'); });
-        input.addEventListener('blur', ()=>{ input.value = normalizeName(input.value); checkConfirmBtn(); });
+
+        input.addEventListener('input', () => handleAutoComplete(i));
+
+        // FIX 6: when this input gains focus, close all OTHER autocomplete lists
+        input.addEventListener('focus', () => {
+          activeInputs.forEach((ai, j) => {
+            if (j !== i) ai.acList.classList.remove('open');
+          });
+        });
+
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Escape') {
+            acList.classList.remove('open');
+          }
+          // Tab or Enter move focus — close this list
+          if (e.key === 'Tab' || e.key === 'Enter') {
+            // Pick first match on Enter if list open
+            if (e.key === 'Enter' && acList.classList.contains('open')) {
+              const firstItem = acList.querySelector('.autocomplete-item');
+              if (firstItem) { firstItem.click(); e.preventDefault(); return; }
+            }
+            acList.classList.remove('open');
+          }
+        });
+
+        // FIX 6: blur closes this list after a short delay
+        // (delay allows a click on an autocomplete item to fire first)
+        input.addEventListener('blur', () => {
+          setTimeout(() => acList.classList.remove('open'), 150);
+          input.value = normalizeName(input.value);
+          checkConfirmBtn();
+        });
+
         input.addEventListener('change', checkConfirmBtn);
       });
     }
 
-    function onColorChange(i) { /* legacy stub, no-op */ }
-    function syncColorDropdowns() { /* replaced by modal */ }
-    function updateColorDot(i) { /* replaced by modal */ }
-
     function handleAutoComplete(idx) {
-      const {input,acList} = activeInputs[idx];
+      const {input, acList} = activeInputs[idx];
       const val = input.value.trim().toLowerCase();
       checkConfirmBtn();
       if (!val) { acList.classList.remove('open'); return; }
       const typed = activeInputs.filter((_,i)=>i!==idx).map(x=>x.input.value.trim().toLowerCase());
-      const matches = knownPlayers.filter(p=>p.name.toLowerCase().includes(val)&&!typed.includes(p.name.toLowerCase()));
+      // FIX 7: filter out deleted players from autocomplete suggestions
+      const matches = knownPlayers.filter(p =>
+        !p.deleted &&
+        p.name.toLowerCase().includes(val) &&
+        !typed.includes(p.name.toLowerCase())
+      );
       if (!matches.length) { acList.classList.remove('open'); return; }
       acList.innerHTML = matches.map(p=>`
-        <div class="autocomplete-item" onclick="selectPlayer(${idx},'${p.name.replace(/'/g,"\\'")}')">
+        <div class="autocomplete-item" onmousedown="selectPlayer(${idx},'${p.name.replace(/'/g,"\\'")}')">
           <div class="autocomplete-avatar">${getAvatarEl(p)}</div>${p.name}
         </div>`).join('');
       acList.classList.add('open');
     }
 
+    // Note: changed onclick → onmousedown so blur fires AFTER the click is registered
     function selectPlayer(idx, name) {
       activeInputs[idx].input.value = name;
       activeInputs[idx].acList.classList.remove('open');
+      // Move focus to next input if available, otherwise stay
+      const next = activeInputs[idx + 1];
+      if (next) next.input.focus();
       checkConfirmBtn();
     }
 
-    // Also handle Enter key in input: close autocomplete and normalize
+    // Enter key handler (for modal-newgame context)
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Enter' && document.getElementById('modal-newgame')?.classList.contains('open')) {
         activeInputs.forEach(ai => {
           if (document.activeElement === ai.input) {
-            // Pick first autocomplete match if list is open
             const firstItem = ai.acList.querySelector('.autocomplete-item');
             if (firstItem && ai.acList.classList.contains('open')) {
               firstItem.click();
@@ -1050,14 +1089,12 @@
        HOME
     ═══════════════════════════════ */
     function renderHome() {
-      // action area
       const area = document.getElementById('home-action-area');
       if (isAdmin()) {
         area.innerHTML = `<button class="nouvelle-partie-btn" onclick="startNewGame()">✨ NOUVELLE PARTIE</button>`;
       } else {
         area.innerHTML = `<div class="viewer-lock-msg"><div class="lock-icon">🔒</div><div>Mode visiteur — <a onclick="openAuthModal()">Connectez-vous</a> pour ajouter une partie.</div></div>`;
       }
-      // last game
       const lgSection = document.getElementById('last-game-section');
       const visibleHistory = history.filter(g=>!g.deleted);
       if (visibleHistory.length) {
@@ -1078,7 +1115,6 @@
       } else {
         lgSection.style.display = 'none';
       }
-      // quick ranking
       const qr = document.getElementById('quick-ranking');
       const ranked = computeRanking().slice(0,4);
       if (!ranked.length) {
@@ -1104,8 +1140,7 @@
 
     function renderColorStats() {
       const el = document.getElementById('color-stats-grid');
-      // Build stats: for each color, count how many times it ended in each rank
-      const stats = {}; // stats[colorKey][rankKey] = count
+      const stats = {};
       COLORS.forEach(c => { stats[c.key] = {gold:0,silver:0,bronze:0,donkey:0,total:0}; });
       let hasColorData = false;
       history.forEach(g => {
@@ -1208,7 +1243,6 @@
     function toggleEditGame(gi) {
       const form = document.getElementById(`hedit-${gi}`);
       const visible = form.style.display !== 'none';
-      // close all other open forms first
       document.querySelectorAll('[id^="hedit-"]').forEach(f=>f.style.display='none');
       form.style.display = visible ? 'none' : 'block';
       if (!visible) document.getElementById(`hei-${gi}-0`).focus();
@@ -1219,11 +1253,8 @@
       const newNames = g.players.map((_,pi) => normalizeName(document.getElementById(`hei-${gi}-${pi}`).value));
       if (newNames.some(n=>!n)) { showToast('⚠️ Noms vides non autorisés'); return; }
       if (new Set(newNames.map(n=>n.toLowerCase())).size < 4) { showToast('⚠️ 4 noms différents requis !'); return; }
-      // update history
       newNames.forEach((name,pi)=>{
-        const oldName = g.players[pi].name;
         g.players[pi].name = name;
-        // add to known players if new
         if (!knownPlayers.find(p=>p.name.toLowerCase()===name.toLowerCase()))
           knownPlayers.push({name,avatar:null});
       });
@@ -1255,14 +1286,12 @@
       const actionArea = document.getElementById('data-action-area');
       document.getElementById('avatar-hint').style.display = isAdmin() && knownPlayers.length ? 'block' : 'none';
 
-      // Render data action buttons
       if (actionArea) {
-        let btns = `<div class="data-actions">
+        actionArea.innerHTML = `<div class="data-actions">
           <button class="data-btn" onclick="exportData()">📤 Exporter</button>
           <button class="data-btn import-btn" onclick="triggerImport()">📥 Importer</button>
           ${isAdmin() ? `<button class="data-btn" onclick="openChangePassword()" style="flex:1.2">🔑 Mot de passe</button>` : ''}
         </div>`;
-        actionArea.innerHTML = btns;
       }
 
       if (!knownPlayers.length) {
@@ -1279,7 +1308,6 @@
         const fileInput = isAdmin() ? `<input type="file" class="file-input-hidden" id="file-${pi}" accept="image/*" onchange="handleAvatarChange(${pi},this)">` : '';
         const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="event.stopPropagation();deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="event.stopPropagation();openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
 
-        // Lost-to: who was 3rd when this player was donkey
         const lostToMap = {};
         history.forEach(g => {
           const donkeyP = g.players.find(p=>p.rank==='donkey'&&p.name.toLowerCase()===pl.name.toLowerCase());
@@ -1407,15 +1435,12 @@
         okLabel: 'Fusionner',
         okColor: 'var(--accent2)',
         onOk: () => {
-          // Rename all history entries
           history.forEach(g => {
             g.players.forEach(p => {
               if (p.name.toLowerCase() === src.name.toLowerCase()) p.name = tgt.name;
             });
           });
-          // Keep target's avatar if it has one, otherwise use source's
           if (!tgt.avatar && src.avatar) tgt.avatar = src.avatar;
-          // Remove source
           knownPlayers.splice(_mergeSourceIdx, 1);
           DB.set('players', knownPlayers);
           DB.set('history', history);
@@ -1435,7 +1460,6 @@
       const s = ranked.find(r=>r.name.toLowerCase()===name.toLowerCase()) || {gold:0,silver:0,bronze:0,donkey:0,games:0,score:0};
       const rank = ranked.findIndex(r=>r.name.toLowerCase()===name.toLowerCase());
 
-      // Co-players: who has this player played with the most
       const coMap = {};
       history.forEach(g=>{
         const isInGame = g.players.find(p=>p.name.toLowerCase()===name.toLowerCase());
@@ -1447,7 +1471,6 @@
       });
       const coPlayers = Object.entries(coMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-      // Lost-to: bronze when player is donkey
       const lostToMap = {};
       history.forEach(g=>{
         const donkeyP = g.players.find(p=>p.rank==='donkey'&&p.name.toLowerCase()===name.toLowerCase());
@@ -1455,14 +1478,6 @@
         if (donkeyP && bronzeP) lostToMap[bronzeP.name] = (lostToMap[bronzeP.name]||0)+1;
       });
       const lostToEntries = Object.entries(lostToMap).sort((a,b)=>b[1]-a[1]);
-
-      // Win rate vs others (times player was gold when specific others were donkey)
-      const bestedMap = {};
-      history.forEach(g=>{
-        const goldP = g.players.find(p=>p.rank==='gold'&&p.name.toLowerCase()===name.toLowerCase());
-        const donkeyP = g.players.find(p=>p.rank==='donkey');
-        if (goldP && donkeyP) bestedMap[donkeyP.name] = (bestedMap[donkeyP.name]||0)+1;
-      });
 
       const goldPct   = s.games ? Math.round(s.gold/s.games*100)   : 0;
       const donkeyPct = s.games ? Math.round(s.donkey/s.games*100) : 0;
@@ -1488,7 +1503,6 @@
         </div>`;
       }).join('') : `<div style="font-size:.8rem;color:var(--text-dim);padding:8px 0">Jamais perdu contre quelqu'un comme âne</div>`;
 
-      // Color performance for this player
       const colorPerf = {};
       COLORS.forEach(c => { colorPerf[c.key] = {gold:0,silver:0,bronze:0,donkey:0,total:0}; });
       history.forEach(g => {
@@ -1676,7 +1690,7 @@
        INIT
     ═══════════════════════════════ */
     updateAuthUI();
-    renderHome(); // render immediately from localStorage while Supabase loads
+    renderHome();
 
     (async () => {
       const ind = document.getElementById('sync-indicator');
