@@ -1299,7 +1299,8 @@
         return;
       }
       const ranked = computeRanking();
-      el.innerHTML = knownPlayers.map((pl,pi)=>{
+      el.innerHTML = knownPlayers.filter(pl => !pl.deleted).map((pl)=>{
+        const pi = knownPlayers.indexOf(pl);
         const s = ranked.find(r=>r.name.toLowerCase()===pl.name.toLowerCase()) || {gold:0,silver:0,bronze:0,donkey:0,games:0,score:0};
         const goldPct   = s.games ? Math.round(s.gold/s.games*100)   : 0;
         const donkeyPct = s.games ? Math.round(s.donkey/s.games*100) : 0;
