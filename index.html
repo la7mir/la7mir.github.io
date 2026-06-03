@@ -1031,13 +1031,14 @@
       const entry = {
         id: Date.now(),
         date: new Date().toLocaleString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-        players: activeInputs.map((x,i)=>({name:x.input.value.trim(), rank:RANKS[i].key, color:colors[i]}))
+        players: activeInputs.map((x,i)=>({name:x.input.value.trim(), rank:RANKS[i].key, color:colors[i]})),
+        deleted: false
       };
       history.unshift(entry);
       DB.set('history', history);
       names.forEach(name=>{
         if (!knownPlayers.find(p=>p.name.toLowerCase()===name.toLowerCase()))
-          knownPlayers.push({name,avatar:null});
+          knownPlayers.push({name, avatar:null, deleted:false});
       });
       DB.set('players', knownPlayers);
       closeModal('modal-newgame');
@@ -1058,9 +1059,10 @@
       }
       // last game
       const lgSection = document.getElementById('last-game-section');
-      if (history.length) {
+      const visibleHistory = history.filter(g=>!g.deleted);
+      if (visibleHistory.length) {
         lgSection.style.display = 'block';
-        const g = history[0];
+        const g = visibleHistory[0];
         document.getElementById('last-game-date').textContent = g.date;
         document.getElementById('last-game-players').innerHTML = g.players.map(p=>{
           const r = RANKS.find(r=>r.key===p.rank);
@@ -1171,7 +1173,7 @@
         el.innerHTML = `<div class="empty-state"><div class="empty-icon">📜</div><div class="empty-text">Aucun historique</div></div>`;
         return;
       }
-      el.innerHTML = history.map((g,gi)=>{
+      el.innerHTML = history.filter(g=>!g.deleted).map((g,gi)=>{
         const adminActions = isAdmin() ? `
           <div class="history-actions">
             <button class="history-act-btn edit-btn" onclick="toggleEditGame(${gi})" title="Modifier">✏️</button>
@@ -1237,7 +1239,7 @@
         message: `La partie du ${history[gi].date} sera définitivement supprimée.`,
         okLabel: 'Supprimer', okColor: 'var(--donkey)',
         onOk: () => {
-          history.splice(gi,1);
+          history[gi].deleted = true;
           DB.set('history', history);
           renderHistory();
           showToast('🗑 Partie supprimée');
@@ -1344,7 +1346,7 @@
         message: `"${knownPlayers[pi].name}" sera définitivement supprimé(e). L'historique des parties sera conservé.`,
         okLabel: 'Supprimer', okColor: 'var(--donkey)',
         onOk: () => {
-          knownPlayers.splice(pi,1);
+          knownPlayers[pi].deleted = true;
           DB.set('players', knownPlayers);
           renderPlayers();
           showToast('✕ Joueur supprimé');
@@ -1563,7 +1565,7 @@
     }
     function computeRanking() {
       const map = {};
-      history.forEach(g=>{
+      history.filter(g=>!g.deleted).forEach(g=>{
         g.players.forEach(p=>{
           const k = p.name.toLowerCase();
           if (!map[k]) map[k]={name:p.name,gold:0,silver:0,bronze:0,donkey:0,games:0};
