@@ -288,12 +288,21 @@
         .clickable-name{cursor:pointer;text-decoration:underline;text-decoration-color:rgba(124,92,252,.4);text-underline-offset:2px;}
         .clickable-name:hover{color:var(--accent2);}
 
+        /* PULL TO REFRESH */
+        #ptr-indicator{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:999;display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:0 0 20px 20px;background:var(--surface2);border:1px solid var(--border);border-top:none;font-size:.78rem;font-weight:800;color:var(--text-dim);opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
+        #ptr-indicator.visible{opacity:1;}
+        #ptr-indicator.releasing{color:var(--green);}
+        #ptr-spinner{font-size:1rem;transition:transform .2s;}
+
         /* CHANGE PASSWORD SECTION */
         .chpass-section{margin-top:18px;border-top:1px solid var(--border);padding-top:18px;}
         .chpass-title{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text-dim);margin-bottom:12px;}
     </style>
 </head>
 <body>
+
+<!-- PULL TO REFRESH -->
+<div id="ptr-indicator"><span id="ptr-spinner">↓</span><span id="ptr-label">Tirer pour actualiser</span></div>
 
 <!-- INSTALL BANNER -->
 <div class="install-banner" id="install-banner">
@@ -446,6 +455,7 @@
         <button class="modal-close" onclick="closeModal('modal-color-picker')">✕</button>
         <div class="modal-title" id="color-picker-title">Choisir une couleur</div>
         <div class="color-picker-grid" id="color-picker-grid"></div>
+        <button class="confirm-btn visible" style="margin-top:16px;display:block" onclick="confirmColorPick()">✅ Confirmer</button>
     </div>
 </div>
 
@@ -842,7 +852,6 @@
       document.getElementById(id).classList.remove('open');
     }
     document.querySelectorAll('.modal-overlay').forEach(m => {
-      if (m.id === 'modal-newgame') return; // new game modal only closes via the ✕ button
       m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
     });
 
@@ -884,13 +893,8 @@
 
     function selectColorOption(key) {
       _colorPickerTemp = key;
-      // Immediately apply and close — no confirm step needed
-      const i = _colorPickerIdx;
-      if (i < 0) return;
-      activeInputs[i].colorVal = key;
-      updateColorTrigger(i);
-      closeModal('modal-color-picker');
-      checkConfirmBtn();
+      document.querySelectorAll('.color-picker-option').forEach(el => el.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
     }
 
     function confirmColorPick() {
@@ -1266,7 +1270,7 @@
         const avatarClick = isAdmin() ? `onclick="triggerAvatarUpload(${pi})"` : '';
         const avatarOverlay = isAdmin() ? `<div class="edit-avatar-overlay">📷</div>` : '';
         const fileInput = isAdmin() ? `<input type="file" class="file-input-hidden" id="file-${pi}" accept="image/*" onchange="handleAvatarChange(${pi},this)">` : '';
-        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="event.stopPropagation();deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="event.stopPropagation();openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
+        const delBtn = isAdmin() ? `<button class="edit-del-btn" onclick="deletePlayer(${pi})">✕</button><button class="merge-btn" onclick="openMergeModal(${pi})" title="Fusionner">🔀</button>` : '';
 
         // Lost-to: who was 3rd when this player was donkey
         const lostToMap = {};
@@ -1281,13 +1285,13 @@
         const lostToEntries = Object.entries(lostToMap).sort((a,b)=>b[1]-a[1]);
         const lostToHTML = lostToEntries.length ? `<div class="lost-to-tag">🫏 <span>Perdu contre :</span> ${lostToEntries.slice(0,2).map(([name,cnt])=>`<b>${name}</b>${cnt>1?` ×${cnt}`:''}`).join(', ')}</div>` : '';
 
-        return `<div class="player-edit-card" onclick="openPlayerDetail('${pl.name.replace(/'/g,"\\'")}');" style="cursor:pointer">
-          <div class="edit-avatar-wrap" ${avatarClick} onclick="event.stopPropagation()${isAdmin()?`;triggerAvatarUpload(${pi})`:''}">
+        return `<div class="player-edit-card">
+          <div class="edit-avatar-wrap" ${avatarClick}>
             <div class="edit-avatar">${getAvatarEl(pl)}</div>
             ${avatarOverlay}${fileInput}
           </div>
           <div class="edit-info" style="flex:1;min-width:0">
-            <div class="edit-name">${pl.name}</div>
+            <div class="edit-name clickable-name" onclick="openPlayerDetail('${pl.name.replace(/'/g,"\\'")}')">${pl.name}</div>
             <div class="edit-stats-row">
               ${s.gold   ?`<div class="medal-chip gold">🥇 ${s.gold}</div>`:''}
               ${s.silver ?`<div class="medal-chip silver">🥈 ${s.silver}</div>`:''}
@@ -1610,8 +1614,59 @@
     function dismissInstall(){installBanner.classList.remove('visible');localStorage.setItem('pwa-dismissed','1');}
 
     /* ═══════════════════════════════
-       INIT
+       PULL TO REFRESH
     ═══════════════════════════════ */
+    (function() {
+      const THRESHOLD = 72;   // px to pull before releasing triggers reload
+      const indicator = document.getElementById('ptr-indicator');
+      const spinner   = document.getElementById('ptr-spinner');
+      const label     = document.getElementById('ptr-label');
+      let startY = 0, pulling = false, triggered = false;
+
+      document.addEventListener('touchstart', e => {
+        // Only start if we're scrolled to the very top
+        if (window.scrollY === 0) {
+          startY = e.touches[0].clientY;
+          pulling = true;
+          triggered = false;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchmove', e => {
+        if (!pulling) return;
+        const dy = e.touches[0].clientY - startY;
+        if (dy <= 0) { pulling = false; indicator.classList.remove('visible','releasing'); return; }
+        const progress = Math.min(dy / THRESHOLD, 1);
+        spinner.style.transform = `rotate(${progress * 180}deg)`;
+        indicator.classList.add('visible');
+        if (dy >= THRESHOLD) {
+          indicator.classList.add('releasing');
+          spinner.textContent = '↻';
+          label.textContent = 'Relâcher pour actualiser';
+          triggered = true;
+        } else {
+          indicator.classList.remove('releasing');
+          spinner.textContent = '↓';
+          label.textContent = 'Tirer pour actualiser';
+          triggered = false;
+        }
+      }, { passive: true });
+
+      document.addEventListener('touchend', () => {
+        if (!pulling) return;
+        pulling = false;
+        if (triggered) {
+          spinner.textContent = '⟳';
+          label.textContent = 'Actualisation…';
+          setTimeout(() => window.location.reload(), 200);
+        } else {
+          indicator.classList.remove('visible','releasing');
+          spinner.style.transform = '';
+        }
+      });
+    })();
+
+
     updateAuthUI();
     renderHome(); // render immediately from localStorage while Supabase loads
 
