@@ -342,7 +342,7 @@
     <div id="page-stats" class="page">
         <div style="height:10px"></div>
         <div class="section-title">📊 Classement</div>
-        <div class="score-legend">Score = 🥇×3 + 🥈×2 + 🥉×1 − 🫏×1</div>
+        <div class="score-legend">Score = 🥇×3 + 🥈×2 + 🥉×1 − 🫏×3</div>
         <div id="stats-ranking" class="ranking-list"></div>
         <div class="color-stats-section">
             <div class="section-title">🎨 Stats par couleur</div>
@@ -479,7 +479,6 @@
         const rows = await r.json();
         if (!rows || !rows.length) return null;
         const data = rows[0];
-        // FIX 3: sync admin_creds both ways — clear local if Supabase has none
         if (data.admin_creds) {
           localStorage.setItem('admin-creds', JSON.stringify(data.admin_creds));
         } else {
@@ -501,15 +500,12 @@
         const admin_creds = DB.get('admin-creds', null);
         const payload = { id: 1, players: knownPlayers, history, admin_creds };
 
-        // FIX 1: use Prefer:return=minimal so Supabase returns 204 (no body to parse)
-        // FIX 2: check r.status only — never call r.json() on a PATCH response
         const r = await fetch(`${SB_TABLE}?id=eq.1`, {
           method: 'PATCH',
           headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
           body: JSON.stringify(payload)
         });
 
-        // 404 = row missing, 406 = no match — insert instead
         if (r.status === 404 || r.status === 406) {
           await fetch(SB_TABLE, {
             method: 'POST',
@@ -528,7 +524,6 @@
       _syncPending = false;
     }
 
-    // FIX 5: sbSaveCreds — add POST upsert fallback if row doesn't exist yet
     async function sbSaveCreds(creds) {
       try {
         const r = await fetch(`${SB_TABLE}?id=eq.1`, {
@@ -546,7 +541,6 @@
       } catch(e) { console.warn('creds sync failed', e); }
     }
 
-    // Debounced save
     function scheduleSync() {
       clearTimeout(_syncTimer);
       _syncTimer = setTimeout(sbSave, 800);
@@ -559,7 +553,6 @@
       get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},
       set(k,v){
         localStorage.setItem(k,JSON.stringify(v));
-        // FIX 2 (part 2): admin-creds changes also trigger a full sync
         if (k==='players' || k==='history' || k==='admin-creds') scheduleSync();
       }
     };
@@ -878,7 +871,6 @@
     let _colorPickerTemp = '';
 
     function openColorPicker(i) {
-      // FIX 6 (part): close all autocomplete lists when opening color picker
       closeAllAutocompleteLists();
       _colorPickerIdx = i;
       _colorPickerTemp = activeInputs[i]?.colorVal || '';
@@ -940,10 +932,8 @@
     }
 
     /* ═══════════════════════════════
-       FIX 6 + 7: AUTOCOMPLETE HELPERS
+       AUTOCOMPLETE HELPERS
     ═══════════════════════════════ */
-
-    // Close every open autocomplete list across all inputs
     function closeAllAutocompleteLists() {
       activeInputs.forEach(ai => ai.acList.classList.remove('open'));
     }
@@ -975,7 +965,6 @@
 
         input.addEventListener('input', () => handleAutoComplete(i));
 
-        // FIX 6: when this input gains focus, close all OTHER autocomplete lists
         input.addEventListener('focus', () => {
           activeInputs.forEach((ai, j) => {
             if (j !== i) ai.acList.classList.remove('open');
@@ -986,9 +975,7 @@
           if (e.key === 'Escape') {
             acList.classList.remove('open');
           }
-          // Tab or Enter move focus — close this list
           if (e.key === 'Tab' || e.key === 'Enter') {
-            // Pick first match on Enter if list open
             if (e.key === 'Enter' && acList.classList.contains('open')) {
               const firstItem = acList.querySelector('.autocomplete-item');
               if (firstItem) { firstItem.click(); e.preventDefault(); return; }
@@ -997,8 +984,6 @@
           }
         });
 
-        // FIX 6: blur closes this list after a short delay
-        // (delay allows a click on an autocomplete item to fire first)
         input.addEventListener('blur', () => {
           setTimeout(() => acList.classList.remove('open'), 150);
           input.value = normalizeName(input.value);
@@ -1015,7 +1000,6 @@
       checkConfirmBtn();
       if (!val) { acList.classList.remove('open'); return; }
       const typed = activeInputs.filter((_,i)=>i!==idx).map(x=>x.input.value.trim().toLowerCase());
-      // FIX 7: filter out deleted players from autocomplete suggestions
       const matches = knownPlayers.filter(p =>
         !p.deleted &&
         p.name.toLowerCase().includes(val) &&
@@ -1029,17 +1013,14 @@
       acList.classList.add('open');
     }
 
-    // Note: changed onclick → onmousedown so blur fires AFTER the click is registered
     function selectPlayer(idx, name) {
       activeInputs[idx].input.value = name;
       activeInputs[idx].acList.classList.remove('open');
-      // Move focus to next input if available, otherwise stay
       const next = activeInputs[idx + 1];
       if (next) next.input.focus();
       checkConfirmBtn();
     }
 
-    // Enter key handler (for modal-newgame context)
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Enter' && document.getElementById('modal-newgame')?.classList.contains('open')) {
         activeInputs.forEach(ai => {
@@ -1589,7 +1570,7 @@
         });
       });
       return Object.values(map)
-        .map(p=>({...p,score:p.gold*3+p.silver*2+p.bronze*1-p.donkey*1}))
+        .map(p=>({...p,score:p.gold*3+p.silver*2+p.bronze*1-p.donkey*3}))
         .sort((a,b)=>b.score-a.score||b.gold-a.gold||b.silver-a.silver||b.bronze-a.bronze||a.donkey-b.donkey);
     }
     function showToast(msg) {
